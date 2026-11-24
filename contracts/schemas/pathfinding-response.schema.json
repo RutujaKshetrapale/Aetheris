@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pathfinding-response.schema.json",
+  "title": "Aetheris Pathfinding Response",
+  "type": "object",
+  "required": ["algorithm", "pathFound", "path", "pathCost", "traceDeltas", "metrics", "reversible"],
+  "properties": {
+    "algorithm": {
+      "type": "string",
+      "enum": ["BFS", "DFS", "DIJKSTRA", "ASTAR"]
+    },
+    "pathFound": {
+      "type": "boolean"
+    },
+    "path": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^r[0-9]+c[0-9]+$"
+      }
+    },
+    "pathCost": {
+      "type": "number"
+    },
+    "traceDeltas": {
+      "type": "array",
+      "items": {
+        "$ref": "trace-delta.schema.json"
+      }
+    },
+    "metrics": {
+      "$ref": "metrics.schema.json"
+    },
+    "reversible": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

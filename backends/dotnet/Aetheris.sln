@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aetheris.Api", "Aetheris.Api\Aetheris.Api.csproj", "{A87B2E70-3DFE-4E90-B8A1-70C4EFBD6511}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aetheris.Tests", "Aetheris.Tests\Aetheris.Tests.csproj", "{B98C3F81-4EAF-5FA1-C9B2-81D5F0CE7622}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A87B2E70-3DFE-4E90-B8A1-70C4EFBD6511}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A87B2E70-3DFE-4E90-B8A1-70C4EFBD6511}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A87B2E70-3DFE-4E90-B8A1-70C4EFBD6511}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A87B2E70-3DFE-4E90-B8A1-70C4EFBD6511}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B98C3F81-4EAF-5FA1-C9B2-81D5F0CE7622}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B98C3F81-4EAF-5FA1-C9B2-81D5F0CE7622}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B98C3F81-4EAF-5FA1-C9B2-81D5F0CE7622}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B98C3F81-4EAF-5FA1-C9B2-81D5F0CE7622}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,15 @@
+{
+  "name": "aetheris-tests",
+  "version": "2.1.0",
+  "private": true,
+  "description": "AETHERIS Contract and Fixture Test Suite",
+  "scripts": {
+    "validate:contracts": "node contract-validation/validate.js",
+    "test:fixtures": "node fixture-runner/run-fixtures.js"
+  },
+  "dependencies": {
+    "ajv": "8.17.1",
+    "ajv-formats": "3.0.1",
+    "yaml": "2.7.0"
+  }
+}

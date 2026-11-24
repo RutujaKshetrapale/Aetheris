@@ -1,0 +1,15 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: aetheris-backend-springboot
+  jackson:
+    default-property-inclusion: always
+    serialization:
+      indent-output: true
+
+aetheris:
+  version: 2.1.0
+  persistence:
+    engine: ${AETHERIS_PERSISTENCE_ENGINE:IN_MEMORY}

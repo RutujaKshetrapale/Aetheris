@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "grid.schema.json",
+  "title": "Aetheris Grid Model",
+  "type": "object",
+  "required": ["rows", "cols", "startNode", "targetNode"],
+  "properties": {
+    "rows": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 200
+    },
+    "cols": {
+      "type": "integer",
+      "minimum": 2,
+      "maximum": 200
+    },
+    "startNode": {
+      "type": "string",
+      "pattern": "^r[0-9]+c[0-9]+$"
+    },
+    "targetNode": {
+      "type": "string",
+      "pattern": "^r[0-9]+c[0-9]+$"
+    },
+    "cells": {
+      "type": "array",
+      "items": {
+        "$ref": "node.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false
+}

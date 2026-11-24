@@ -1,0 +1,13 @@
+{
+  "name": "aetheris-monorepo",
+  "version": "2.1.0",
+  "private": true,
+  "description": "AETHERIS — The Art of Algorithmic Thinking Monorepo",
+  "scripts": {
+    "validate:contracts": "npm --prefix tests run validate:contracts",
+    "test:fixtures": "npm --prefix tests run test:fixtures",
+    "test:dotnet": "dotnet test backends/dotnet/Aetheris.sln",
+    "test:springboot": "mvn test -f backends/spring-boot/pom.xml",
+    "test:all": "npm run validate:contracts && npm run test:fixtures && npm run test:dotnet && npm run test:springboot"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trace-delta.schema.json",
+  "title": "Aetheris Reversible Trace Delta",
+  "type": "object",
+  "required": ["step", "nodeId", "action", "beforeState", "afterState"],
+  "properties": {
+    "step": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nodeId": {
+      "type": "string",
+      "pattern": "^r[0-9]+c[0-9]+$"
+    },
+    "action": {
+      "type": "string",
+      "enum": ["ENQUEUE", "DEQUEUE", "VISIT", "UPDATE_COST", "SET_PARENT", "MARK_PATH"]
+    },
+    "beforeState": {
+      "$ref": "cell-state.schema.json"
+    },
+    "afterState": {
+      "$ref": "cell-state.schema.json"
+    },
+    "frontierSize": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

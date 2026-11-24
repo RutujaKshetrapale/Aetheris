@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "node.schema.json",
+  "title": "Aetheris Node Definition",
+  "type": "object",
+  "required": ["id", "row", "col", "cellType"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^r[0-9]+c[0-9]+$",
+      "description": "Deterministic canonical node identifier formatted as r{row}c{col}"
+    },
+    "row": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "col": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cellType": {
+      "type": "string",
+      "enum": ["EMPTY", "WALL", "START", "TARGET", "WEIGHTED"]
+    },
+    "weight": {
+      "type": "number",
+      "minimum": 1.0,
+      "default": 1.0
+    }
+  },
+  "additionalProperties": false
+}

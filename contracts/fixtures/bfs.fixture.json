@@ -1,0 +1,2189 @@
+{
+  "id": "fixture-bfs-canonical-5x5",
+  "name": "BFS Deterministic Canonical 5x5 Test Fixture",
+  "description": "Deterministic ground truth fixture for BFS pathfinding on 5x5 obstacle grid",
+  "algorithm": "BFS",
+  "grid": {
+    "rows": 5,
+    "cols": 5,
+    "startNode": "r0c0",
+    "targetNode": "r4c4",
+    "cells": [
+      {
+        "id": "r0c0",
+        "row": 0,
+        "col": 0,
+        "cellType": "START",
+        "weight": 1
+      },
+      {
+        "id": "r4c4",
+        "row": 4,
+        "col": 4,
+        "cellType": "TARGET",
+        "weight": 1
+      },
+      {
+        "id": "r1c2",
+        "row": 1,
+        "col": 2,
+        "cellType": "WALL",
+        "weight": 1
+      },
+      {
+        "id": "r2c2",
+        "row": 2,
+        "col": 2,
+        "cellType": "WALL",
+        "weight": 1
+      },
+      {
+        "id": "r3c2",
+        "row": 3,
+        "col": 2,
+        "cellType": "WALL",
+        "weight": 1
+      },
+      {
+        "id": "r0c2",
+        "row": 0,
+        "col": 2,
+        "cellType": "WEIGHTED",
+        "weight": 5
+      }
+    ]
+  },
+  "expectedOutcome": {
+    "pathFound": true,
+    "path": [
+      "r0c0",
+      "r0c1",
+      "r0c2",
+      "r0c3",
+      "r0c4",
+      "r1c4",
+      "r2c4",
+      "r3c4",
+      "r4c4"
+    ],
+    "pathCost": 8,
+    "pathLength": 9,
+    "nodesVisited": 22,
+    "maxFrontierSize": 4,
+    "totalTraceDeltas": 96
+  },
+  "traceDeltas": [
+    {
+      "step": 0,
+      "nodeId": "r0c0",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "START",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "START",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 0,
+        "fCost": 0,
+        "parentId": null
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 1,
+      "nodeId": "r0c0",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "START",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 0,
+        "fCost": 0,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "START",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 0,
+        "fCost": 0,
+        "parentId": null
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 2,
+      "nodeId": "r0c0",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "START",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 0,
+        "fCost": 0,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "START",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 0,
+        "fCost": 0,
+        "parentId": null
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 3,
+      "nodeId": "r0c1",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 4,
+      "nodeId": "r0c1",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 5,
+      "nodeId": "r1c0",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 6,
+      "nodeId": "r1c0",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 7,
+      "nodeId": "r0c1",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 8,
+      "nodeId": "r0c1",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 9,
+      "nodeId": "r0c2",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "WEIGHTED",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "WEIGHTED",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 10,
+      "nodeId": "r0c2",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "WEIGHTED",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "afterState": {
+        "cellType": "WEIGHTED",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 11,
+      "nodeId": "r1c1",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 12,
+      "nodeId": "r1c1",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 13,
+      "nodeId": "r1c0",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 14,
+      "nodeId": "r1c0",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 15,
+      "nodeId": "r2c0",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r1c0"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 16,
+      "nodeId": "r2c0",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r1c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r1c0"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 17,
+      "nodeId": "r0c2",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "WEIGHTED",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "afterState": {
+        "cellType": "WEIGHTED",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 18,
+      "nodeId": "r0c2",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "WEIGHTED",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "afterState": {
+        "cellType": "WEIGHTED",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 19,
+      "nodeId": "r0c3",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r0c2"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 20,
+      "nodeId": "r0c3",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r0c2"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r0c2"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 21,
+      "nodeId": "r1c1",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 22,
+      "nodeId": "r1c1",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 23,
+      "nodeId": "r2c1",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r1c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 24,
+      "nodeId": "r2c1",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r1c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r1c1"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 25,
+      "nodeId": "r2c0",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r1c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r1c0"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 26,
+      "nodeId": "r2c0",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r1c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r1c0"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 27,
+      "nodeId": "r3c0",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r2c0"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 28,
+      "nodeId": "r3c0",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r2c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r2c0"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 29,
+      "nodeId": "r0c3",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r0c2"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r0c2"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 30,
+      "nodeId": "r0c3",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r0c2"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r0c2"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 31,
+      "nodeId": "r0c4",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 32,
+      "nodeId": "r0c4",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 33,
+      "nodeId": "r1c3",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 34,
+      "nodeId": "r1c3",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "frontierSize": 4
+    },
+    {
+      "step": 35,
+      "nodeId": "r2c1",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r1c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r1c1"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 36,
+      "nodeId": "r2c1",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r1c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r1c1"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 37,
+      "nodeId": "r3c1",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r2c1"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 38,
+      "nodeId": "r3c1",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r2c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r2c1"
+      },
+      "frontierSize": 4
+    },
+    {
+      "step": 39,
+      "nodeId": "r3c0",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r2c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r2c0"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 40,
+      "nodeId": "r3c0",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r2c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r2c0"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 41,
+      "nodeId": "r4c0",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r3c0"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 42,
+      "nodeId": "r4c0",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r3c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r3c0"
+      },
+      "frontierSize": 4
+    },
+    {
+      "step": 43,
+      "nodeId": "r0c4",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 44,
+      "nodeId": "r0c4",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 45,
+      "nodeId": "r1c4",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r0c4"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 46,
+      "nodeId": "r1c4",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r0c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r0c4"
+      },
+      "frontierSize": 4
+    },
+    {
+      "step": 47,
+      "nodeId": "r1c3",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 48,
+      "nodeId": "r1c3",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 49,
+      "nodeId": "r2c3",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r1c3"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 50,
+      "nodeId": "r2c3",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r1c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r1c3"
+      },
+      "frontierSize": 4
+    },
+    {
+      "step": 51,
+      "nodeId": "r3c1",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r2c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r2c1"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 52,
+      "nodeId": "r3c1",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r2c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r2c1"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 53,
+      "nodeId": "r4c1",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r3c1"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 54,
+      "nodeId": "r4c1",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r3c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r3c1"
+      },
+      "frontierSize": 4
+    },
+    {
+      "step": 55,
+      "nodeId": "r4c0",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r3c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r3c0"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 56,
+      "nodeId": "r4c0",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r3c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r3c0"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 57,
+      "nodeId": "r1c4",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r0c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r0c4"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 58,
+      "nodeId": "r1c4",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r0c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r0c4"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 59,
+      "nodeId": "r2c4",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r1c4"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 60,
+      "nodeId": "r2c4",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r1c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r1c4"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 61,
+      "nodeId": "r2c3",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r1c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r1c3"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 62,
+      "nodeId": "r2c3",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r1c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r1c3"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 63,
+      "nodeId": "r3c3",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r2c3"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 64,
+      "nodeId": "r3c3",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r2c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r2c3"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 65,
+      "nodeId": "r4c1",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r3c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r3c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 66,
+      "nodeId": "r4c1",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r3c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r3c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 67,
+      "nodeId": "r4c2",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r4c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 68,
+      "nodeId": "r4c2",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r4c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r4c1"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 69,
+      "nodeId": "r2c4",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r1c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r1c4"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 70,
+      "nodeId": "r2c4",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r1c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r1c4"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 71,
+      "nodeId": "r3c4",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r2c4"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 72,
+      "nodeId": "r3c4",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r2c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r2c4"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 73,
+      "nodeId": "r3c3",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r2c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r2c3"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 74,
+      "nodeId": "r3c3",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r2c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r2c3"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 75,
+      "nodeId": "r4c3",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r3c3"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 76,
+      "nodeId": "r4c3",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r3c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r3c3"
+      },
+      "frontierSize": 3
+    },
+    {
+      "step": 77,
+      "nodeId": "r4c2",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r4c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r4c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 78,
+      "nodeId": "r4c2",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r4c1"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r4c1"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 79,
+      "nodeId": "r3c4",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r2c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r2c4"
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 80,
+      "nodeId": "r3c4",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r2c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r2c4"
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 81,
+      "nodeId": "r4c4",
+      "action": "SET_PARENT",
+      "beforeState": {
+        "cellType": "TARGET",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": null,
+        "fCost": null,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "TARGET",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 8,
+        "fCost": null,
+        "parentId": "r3c4"
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 82,
+      "nodeId": "r4c4",
+      "action": "ENQUEUE",
+      "beforeState": {
+        "cellType": "TARGET",
+        "traversalState": "UNVISITED",
+        "inPath": false,
+        "gCost": 8,
+        "fCost": null,
+        "parentId": "r3c4"
+      },
+      "afterState": {
+        "cellType": "TARGET",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 8,
+        "fCost": null,
+        "parentId": "r3c4"
+      },
+      "frontierSize": 2
+    },
+    {
+      "step": 83,
+      "nodeId": "r4c3",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r3c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r3c3"
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 84,
+      "nodeId": "r4c3",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r3c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r3c3"
+      },
+      "frontierSize": 1
+    },
+    {
+      "step": 85,
+      "nodeId": "r4c4",
+      "action": "DEQUEUE",
+      "beforeState": {
+        "cellType": "TARGET",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 8,
+        "fCost": null,
+        "parentId": "r3c4"
+      },
+      "afterState": {
+        "cellType": "TARGET",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 8,
+        "fCost": null,
+        "parentId": "r3c4"
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 86,
+      "nodeId": "r4c4",
+      "action": "VISIT",
+      "beforeState": {
+        "cellType": "TARGET",
+        "traversalState": "IN_FRONTIER",
+        "inPath": false,
+        "gCost": 8,
+        "fCost": null,
+        "parentId": "r3c4"
+      },
+      "afterState": {
+        "cellType": "TARGET",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 8,
+        "fCost": null,
+        "parentId": "r3c4"
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 87,
+      "nodeId": "r0c0",
+      "action": "MARK_PATH",
+      "beforeState": {
+        "cellType": "START",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 0,
+        "fCost": 0,
+        "parentId": null
+      },
+      "afterState": {
+        "cellType": "START",
+        "traversalState": "VISITED",
+        "inPath": true,
+        "gCost": 0,
+        "fCost": 0,
+        "parentId": null
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 88,
+      "nodeId": "r0c1",
+      "action": "MARK_PATH",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": true,
+        "gCost": 1,
+        "fCost": null,
+        "parentId": "r0c0"
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 89,
+      "nodeId": "r0c2",
+      "action": "MARK_PATH",
+      "beforeState": {
+        "cellType": "WEIGHTED",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "afterState": {
+        "cellType": "WEIGHTED",
+        "traversalState": "VISITED",
+        "inPath": true,
+        "gCost": 2,
+        "fCost": null,
+        "parentId": "r0c1"
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 90,
+      "nodeId": "r0c3",
+      "action": "MARK_PATH",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r0c2"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": true,
+        "gCost": 3,
+        "fCost": null,
+        "parentId": "r0c2"
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 91,
+      "nodeId": "r0c4",
+      "action": "MARK_PATH",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": true,
+        "gCost": 4,
+        "fCost": null,
+        "parentId": "r0c3"
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 92,
+      "nodeId": "r1c4",
+      "action": "MARK_PATH",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r0c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": true,
+        "gCost": 5,
+        "fCost": null,
+        "parentId": "r0c4"
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 93,
+      "nodeId": "r2c4",
+      "action": "MARK_PATH",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r1c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": true,
+        "gCost": 6,
+        "fCost": null,
+        "parentId": "r1c4"
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 94,
+      "nodeId": "r3c4",
+      "action": "MARK_PATH",
+      "beforeState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r2c4"
+      },
+      "afterState": {
+        "cellType": "EMPTY",
+        "traversalState": "VISITED",
+        "inPath": true,
+        "gCost": 7,
+        "fCost": null,
+        "parentId": "r2c4"
+      },
+      "frontierSize": 0
+    },
+    {
+      "step": 95,
+      "nodeId": "r4c4",
+      "action": "MARK_PATH",
+      "beforeState": {
+        "cellType": "TARGET",
+        "traversalState": "VISITED",
+        "inPath": false,
+        "gCost": 8,
+        "fCost": null,
+        "parentId": "r3c4"
+      },
+      "afterState": {
+        "cellType": "TARGET",
+        "traversalState": "VISITED",
+        "inPath": true,
+        "gCost": 8,
+        "fCost": null,
+        "parentId": "r3c4"
+      },
+      "frontierSize": 0
+    }
+  ]
+}

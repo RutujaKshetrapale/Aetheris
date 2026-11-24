@@ -1,0 +1,71 @@
+# AETHERIS Unified Multi-Profile Docker Compose Specification
+# Architecture Revision: 2.1.0
+
+services:
+  # Frontends
+  frontend-react:
+    profiles: ["react-sp-my", "react-sp-mg", "react-dn-my", "react-dn-mg"]
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.frontend-react
+    ports:
+      - "3000:80"
+
+  frontend-angular:
+    profiles: ["ang-sp-my", "ang-sp-mg", "ang-dn-my", "ang-dn-mg"]
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.frontend-angular
+    ports:
+      - "4200:80"
+
+  # Backends
+  backend-springboot:
+    profiles: ["react-sp-my", "react-sp-mg", "ang-sp-my", "ang-sp-mg"]
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.backend-springboot
+    ports:
+      - "8080:8080"
+    environment:
+      - AETHERIS_PERSISTENCE_ENGINE=${AETHERIS_PERSISTENCE_ENGINE:-IN_MEMORY}
+
+  backend-dotnet:
+    profiles: ["react-dn-my", "react-dn-mg", "ang-dn-my", "ang-dn-mg"]
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile.backend-dotnet
+    ports:
+      - "5000:5000"
+    environment:
+      - Aetheris__Persistence__Engine=${Aetheris__Persistence__Engine:-IN_MEMORY}
+
+  # Databases
+  mysql:
+    profiles: ["react-sp-my", "react-dn-my", "ang-sp-my", "ang-dn-my"]
+    image: mysql:8.4
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=aetheris
+      - MYSQL_USER=aetheris
+      - MYSQL_PASSWORD=aetheris_password
+      - MYSQL_ROOT_PASSWORD=root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  mongodb:
+    profiles: ["react-sp-mg", "react-dn-mg", "ang-sp-mg", "ang-dn-mg"]
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=aetheris
+      - MONGO_INITDB_ROOT_PASSWORD=aetheris_password
+      - MONGO_INITDB_DATABASE=aetheris
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mysql_data:
+  mongo_data:

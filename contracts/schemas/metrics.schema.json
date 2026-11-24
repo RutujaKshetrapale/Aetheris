@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "metrics.schema.json",
+  "title": "Aetheris Execution Metrics",
+  "type": "object",
+  "required": ["nodesVisited", "maxFrontierSize", "executionTimeMs", "pathLength", "pathCost"],
+  "properties": {
+    "nodesVisited": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxFrontierSize": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "executionTimeMs": {
+      "type": "number",
+      "minimum": 0.0
+    },
+    "pathLength": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pathCost": {
+      "type": "number",
+      "minimum": 0.0
+    }
+  },
+  "additionalProperties": false
+}

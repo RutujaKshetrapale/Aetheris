@@ -1,0 +1,40 @@
+services:
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.frontend-react
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://backend:8080
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.backend-springboot
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    environment:
+      - AETHERIS_PERSISTENCE_ENGINE=MYSQL
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/aetheris?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=aetheris
+      - SPRING_DATASOURCE_PASSWORD=aetheris_password
+
+  mysql:
+    image: mysql:8.4
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=aetheris
+      - MYSQL_USER=aetheris
+      - MYSQL_PASSWORD=aetheris_password
+      - MYSQL_ROOT_PASSWORD=root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:

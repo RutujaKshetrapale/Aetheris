@@ -1,0 +1,458 @@
+openapi: 3.1.0
+info:
+  title: AETHERIS Pathfinding & Algorithmic Exploration API
+  description: Canonical contract for the AETHERIS cross-platform deterministic pathfinding engine. Revision 2.1.0.
+  version: 2.1.0
+  contact:
+    name: AETHERIS Engineering Team
+servers:
+  - url: http://localhost:8080
+    description: Spring Boot Backend
+  - url: http://localhost:5000
+    description: .NET 9 Backend
+
+paths:
+  /api/v1/health:
+    get:
+      summary: Health & Runtime Status
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+  /api/v1/pathfinding/algorithms:
+    get:
+      summary: List Supported Algorithms
+      operationId: getAlgorithms
+      tags:
+        - Pathfinding
+      responses:
+        '200':
+          description: List of available algorithms and their metadata
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlgorithmInfo'
+
+  /api/v1/pathfinding/find:
+    post:
+      summary: Execute Deterministic Pathfinding
+      operationId: findPath
+      tags:
+        - Pathfinding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathfindingRequest'
+      responses:
+        '200':
+          description: Deterministic pathfinding execution result with reversible trace deltas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathfindingResponse'
+        '400':
+          description: Invalid request parameters or malformed grid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/presets:
+    get:
+      summary: List Grid Presets
+      operationId: listPresets
+      tags:
+        - Presets
+      responses:
+        '200':
+          description: Available grid presets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GridPreset'
+    post:
+      summary: Save Grid Preset
+      operationId: savePreset
+      tags:
+        - Presets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavePresetRequest'
+      responses:
+        '201':
+          description: Preset saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GridPreset'
+
+  /api/v1/presets/{id}:
+    get:
+      summary: Get Preset by ID
+      operationId: getPresetById
+      tags:
+        - Presets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Grid preset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GridPreset'
+        '404':
+          description: Preset not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    AlgorithmType:
+      type: string
+      enum:
+        - BFS
+        - DFS
+        - DIJKSTRA
+        - ASTAR
+
+    CellType:
+      type: string
+      enum:
+        - EMPTY
+        - WALL
+        - START
+        - TARGET
+        - WEIGHTED
+
+    TraversalState:
+      type: string
+      enum:
+        - UNVISITED
+        - IN_FRONTIER
+        - VISITED
+
+    TraceAction:
+      type: string
+      enum:
+        - ENQUEUE
+        - DEQUEUE
+        - VISIT
+        - UPDATE_COST
+        - SET_PARENT
+        - MARK_PATH
+
+    HeuristicType:
+      type: string
+      enum:
+        - MANHATTAN
+        - EUCLIDEAN
+        - CHEBYSHEV
+
+    CellState:
+      type: object
+      required:
+        - cellType
+        - traversalState
+        - inPath
+      properties:
+        cellType:
+          $ref: '#/components/schemas/CellType'
+        traversalState:
+          $ref: '#/components/schemas/TraversalState'
+        inPath:
+          type: boolean
+        gCost:
+          type: number
+          format: double
+        fCost:
+          type: number
+          format: double
+        parentId:
+          type: string
+          nullable: true
+
+    CellDefinition:
+      type: object
+      required:
+        - id
+        - row
+        - col
+        - cellType
+      properties:
+        id:
+          type: string
+          pattern: '^r\\d+c\\d+$'
+          example: 'r0c0'
+        row:
+          type: integer
+          minimum: 0
+        col:
+          type: integer
+          minimum: 0
+        cellType:
+          $ref: '#/components/schemas/CellType'
+        weight:
+          type: number
+          format: double
+          minimum: 1.0
+          default: 1.0
+
+    GridModel:
+      type: object
+      required:
+        - rows
+        - cols
+        - startNode
+        - targetNode
+      properties:
+        rows:
+          type: integer
+          minimum: 2
+          maximum: 200
+        cols:
+          type: integer
+          minimum: 2
+          maximum: 200
+        startNode:
+          type: string
+          pattern: '^r\\d+c\\d+$'
+          example: 'r0c0'
+        targetNode:
+          type: string
+          pattern: '^r\\d+c\\d+$'
+          example: 'r4c4'
+        cells:
+          type: array
+          items:
+            $ref: '#/components/schemas/CellDefinition'
+
+    TraceDelta:
+      type: object
+      required:
+        - step
+        - nodeId
+        - action
+        - beforeState
+        - afterState
+      properties:
+        step:
+          type: integer
+          minimum: 0
+        nodeId:
+          type: string
+          pattern: '^r\\d+c\\d+$'
+        action:
+          $ref: '#/components/schemas/TraceAction'
+        beforeState:
+          $ref: '#/components/schemas/CellState'
+        afterState:
+          $ref: '#/components/schemas/CellState'
+        frontierSize:
+          type: integer
+          minimum: 0
+
+    ExecutionMetrics:
+      type: object
+      required:
+        - nodesVisited
+        - maxFrontierSize
+        - executionTimeMs
+        - pathLength
+        - pathCost
+      properties:
+        nodesVisited:
+          type: integer
+          minimum: 0
+        maxFrontierSize:
+          type: integer
+          minimum: 0
+        executionTimeMs:
+          type: number
+          format: double
+          minimum: 0.0
+        pathLength:
+          type: integer
+          minimum: 0
+        pathCost:
+          type: number
+          format: double
+          minimum: 0.0
+
+    PathfindingRequest:
+      type: object
+      required:
+        - algorithm
+        - grid
+      properties:
+        algorithm:
+          $ref: '#/components/schemas/AlgorithmType'
+        grid:
+          $ref: '#/components/schemas/GridModel'
+        heuristic:
+          $ref: '#/components/schemas/HeuristicType'
+          default: MANHATTAN
+        allowDiagonals:
+          type: boolean
+          default: false
+
+    PathfindingResponse:
+      type: object
+      required:
+        - algorithm
+        - pathFound
+        - path
+        - pathCost
+        - traceDeltas
+        - metrics
+        - reversible
+      properties:
+        algorithm:
+          $ref: '#/components/schemas/AlgorithmType'
+        pathFound:
+          type: boolean
+        path:
+          type: array
+          items:
+            type: string
+            pattern: '^r\\d+c\\d+$'
+        pathCost:
+          type: number
+          format: double
+        traceDeltas:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraceDelta'
+        metrics:
+          $ref: '#/components/schemas/ExecutionMetrics'
+        reversible:
+          type: boolean
+          default: true
+
+    AlgorithmInfo:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - weighted
+        - guaranteedShortestPath
+        - frontierType
+      properties:
+        id:
+          $ref: '#/components/schemas/AlgorithmType'
+        name:
+          type: string
+        description:
+          type: string
+        weighted:
+          type: boolean
+        guaranteedShortestPath:
+          type: boolean
+        frontierType:
+          type: string
+          enum:
+            - FIFO_QUEUE
+            - LIFO_STACK
+            - INDEXED_MIN_HEAP
+
+    GridPreset:
+      type: object
+      required:
+        - id
+        - name
+        - grid
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        grid:
+          $ref: '#/components/schemas/GridModel'
+        createdAt:
+          type: string
+          format: date-time
+
+    SavePresetRequest:
+      type: object
+      required:
+        - name
+        - grid
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        grid:
+          $ref: '#/components/schemas/GridModel'
+
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - platform
+        - version
+        - persistenceEngine
+        - databaseConnected
+      properties:
+        status:
+          type: string
+          example: 'UP'
+        platform:
+          type: string
+          example: 'Spring Boot 3.4.3 (Java 21)'
+        version:
+          type: string
+          example: '2.1.0'
+        persistenceEngine:
+          type: string
+          enum:
+            - MYSQL
+            - MONGODB
+            - IN_MEMORY
+        databaseConnected:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      required:
+        - timestamp
+        - status
+        - error
+        - message
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        error:
+          type: string
+        message:
+          type: string
+        path:
+          type: string

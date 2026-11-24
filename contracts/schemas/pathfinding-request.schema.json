@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pathfinding-request.schema.json",
+  "title": "Aetheris Pathfinding Request",
+  "type": "object",
+  "required": ["algorithm", "grid"],
+  "properties": {
+    "algorithm": {
+      "type": "string",
+      "enum": ["BFS", "DFS", "DIJKSTRA", "ASTAR"]
+    },
+    "grid": {
+      "$ref": "grid.schema.json"
+    },
+    "heuristic": {
+      "type": "string",
+      "enum": ["MANHATTAN", "EUCLIDEAN", "CHEBYSHEV"],
+      "default": "MANHATTAN"
+    },
+    "allowDiagonals": {
+      "type": "boolean",
+      "default": false
+    }
+  },
+  "additionalProperties": false
+}

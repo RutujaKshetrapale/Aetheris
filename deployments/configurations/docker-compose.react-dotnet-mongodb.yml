@@ -1,0 +1,37 @@
+services:
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.frontend-react
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://backend:5000
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: deployments/docker/Dockerfile.backend-dotnet
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+    environment:
+      - Aetheris__Persistence__Engine=MONGODB
+      - ConnectionStrings__Mongo=mongodb://aetheris:aetheris_password@mongodb:27017/aetheris?authSource=admin
+
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=aetheris
+      - MONGO_INITDB_ROOT_PASSWORD=aetheris_password
+      - MONGO_INITDB_DATABASE=aetheris
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:

@@ -1,0 +1,20 @@
+# Stage 1: Build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS builder
+WORKDIR /src
+
+COPY backends/dotnet/Aetheris.Api/Aetheris.Api.csproj Aetheris.Api/
+RUN dotnet restore Aetheris.Api/Aetheris.Api.csproj
+
+COPY backends/dotnet/Aetheris.Api/ Aetheris.Api/
+RUN dotnet publish Aetheris.Api/Aetheris.Api.csproj -c Release -o /app/publish
+
+# Stage 2: Runtime
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+WORKDIR /app
+COPY --from=builder /app/publish .
+
+ENV ASPNETCORE_URLS=http://+:5000
+ENV Aetheris__Persistence__Engine=IN_MEMORY
+
+EXPOSE 5000
+ENTRYPOINT ["dotnet", "Aetheris.Api.dll"]

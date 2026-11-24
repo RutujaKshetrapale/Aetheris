@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cell-state.schema.json",
+  "title": "Aetheris Cell Dynamic State",
+  "type": "object",
+  "required": ["cellType", "traversalState", "inPath"],
+  "properties": {
+    "cellType": {
+      "type": "string",
+      "enum": ["EMPTY", "WALL", "START", "TARGET", "WEIGHTED"]
+    },
+    "traversalState": {
+      "type": "string",
+      "enum": ["UNVISITED", "IN_FRONTIER", "VISITED"]
+    },
+    "inPath": {
+      "type": "boolean"
+    },
+    "gCost": {
+      "type": ["number", "null"]
+    },
+    "fCost": {
+      "type": ["number", "null"]
+    },
+    "parentId": {
+      "type": ["string", "null"],
+      "pattern": "^r[0-9]+c[0-9]+$"
+    }
+  },
+  "additionalProperties": false
+}
