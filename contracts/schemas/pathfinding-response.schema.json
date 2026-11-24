@@ -3,11 +3,28 @@
   "$id": "pathfinding-response.schema.json",
   "title": "Aetheris Pathfinding Response",
   "type": "object",
-  "required": ["algorithm", "pathFound", "path", "pathCost", "traceDeltas", "metrics", "reversible"],
+  "required": [
+    "algorithm",
+    "pathFound",
+    "path",
+    "pathNodeCount",
+    "pathEdgeCount",
+    "algorithmPathCost",
+    "terrainPathCost",
+    "traceDeltas",
+    "keyframes",
+    "metrics",
+    "reversible"
+  ],
   "properties": {
     "algorithm": {
       "type": "string",
-      "enum": ["BFS", "DFS", "DIJKSTRA", "ASTAR"]
+      "enum": [
+        "BFS",
+        "DFS",
+        "DIJKSTRA",
+        "ASTAR"
+      ]
     },
     "pathFound": {
       "type": "boolean"
@@ -19,8 +36,25 @@
         "pattern": "^r[0-9]+c[0-9]+$"
       }
     },
-    "pathCost": {
-      "type": "number"
+    "pathNodeCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pathEdgeCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "algorithmPathCost": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "terrainPathCost": {
+      "type": [
+        "integer",
+        "null"
+      ]
     },
     "traceDeltas": {
       "type": "array",
@@ -28,11 +62,27 @@
         "$ref": "trace-delta.schema.json"
       }
     },
+    "keyframes": {
+      "type": "array",
+      "items": {
+        "$ref": "keyframe.schema.json"
+      }
+    },
     "metrics": {
       "$ref": "metrics.schema.json"
     },
     "reversible": {
       "type": "boolean"
+    },
+    "noPathReason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "FRONTIER_EXHAUSTED",
+        null
+      ]
     }
   },
   "additionalProperties": false

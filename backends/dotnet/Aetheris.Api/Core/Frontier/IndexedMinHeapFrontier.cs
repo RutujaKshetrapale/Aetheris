@@ -1,3 +1,5 @@
+using Aetheris.Core.Domain;
+
 namespace Aetheris.Core.Frontier;
 
 public class IndexedMinHeapFrontier : IReversibleFrontier<IndexedMinHeapFrontier.HeapNode>
@@ -7,12 +9,12 @@ public class IndexedMinHeapFrontier : IReversibleFrontier<IndexedMinHeapFrontier
         public string Id { get; }
         public int Row { get; }
         public int Col { get; }
-        public double GCost { get; set; }
-        public double HCost { get; set; }
-        public double FCost { get; set; }
+        public int GCost { get; set; }
+        public int HCost { get; set; }
+        public int FCost { get; set; }
         public long Seq { get; }
 
-        public HeapNode(string id, int row, int col, double gCost, double hCost, double fCost, long seq)
+        public HeapNode(string id, int row, int col, int gCost, int hCost, int fCost, long seq)
         {
             Id = id;
             Row = row;
@@ -27,40 +29,44 @@ public class IndexedMinHeapFrontier : IReversibleFrontier<IndexedMinHeapFrontier
     private readonly bool _isAStar;
     private readonly List<HeapNode> _heap = new();
     private readonly Dictionary<string, int> _indexMap = new();
+    private readonly List<HeapSwap> _swaps = new();
 
     public IndexedMinHeapFrontier(bool isAStar)
     {
         _isAStar = isAStar;
     }
 
+    public List<HeapSwap> DrainSwaps()
+    {
+        var result = new List<HeapSwap>(_swaps);
+        _swaps.Clear();
+        return result;
+    }
+
     private int Compare(HeapNode a, HeapNode b)
     {
-        if (Math.Abs(a.FCost - b.FCost) > 1e-9)
+        if (_isAStar)
         {
-            return a.FCost.CompareTo(b.FCost);
-        }
-        if (_isAStar && Math.Abs(a.HCost - b.HCost) > 1e-9)
-        {
-            return a.HCost.CompareTo(b.HCost);
-        }
-        if (a.Seq != b.Seq)
-        {
+            if (a.FCost != b.FCost) return a.FCost.CompareTo(b.FCost);
+            if (a.HCost != b.HCost) return a.HCost.CompareTo(b.HCost);
             return a.Seq.CompareTo(b.Seq);
         }
-        if (a.Row != b.Row)
+        else
         {
-            return a.Row.CompareTo(b.Row);
+            if (a.GCost != b.GCost) return a.GCost.CompareTo(b.GCost);
+            return a.Seq.CompareTo(b.Seq);
         }
-        return a.Col.CompareTo(b.Col);
     }
 
     private void Swap(int i, int j)
     {
-        var temp = _heap[i];
-        _heap[i] = _heap[j];
-        _heap[j] = temp;
-        _indexMap[_heap[i].Id] = i;
-        _indexMap[_heap[j].Id] = j;
+        var nodeA = _heap[i];
+        var nodeB = _heap[j];
+        _heap[i] = nodeB;
+        _heap[j] = nodeA;
+        _indexMap[nodeB.Id] = i;
+        _indexMap[nodeA.Id] = j;
+        _swaps.Add(new HeapSwap(i, j, nodeA.Id, nodeB.Id));
     }
 
     public void Push(HeapNode element)
@@ -87,7 +93,7 @@ public class IndexedMinHeapFrontier : IReversibleFrontier<IndexedMinHeapFrontier
         return top;
     }
 
-    public void Update(string id, double newGCost, double newFCost)
+    public void DecreaseKey(string id, int newGCost, int newFCost)
     {
         if (!_indexMap.TryGetValue(id, out int idx)) return;
         var node = _heap[idx];
@@ -115,20 +121,22 @@ public class IndexedMinHeapFrontier : IReversibleFrontier<IndexedMinHeapFrontier
 
     private void SiftDown(int idx)
     {
-        int size = _heap.Count;
+        int count = _heap.Count;
         while (true)
         {
             int left = 2 * idx + 1;
             int right = 2 * idx + 2;
             int smallest = idx;
-            if (left < size && Compare(_heap[left], _heap[smallest]) < 0)
+
+            if (left < count && Compare(_heap[left], _heap[smallest]) < 0)
             {
                 smallest = left;
             }
-            if (right < size && Compare(_heap[right], _heap[smallest]) < 0)
+            if (right < count && Compare(_heap[right], _heap[smallest]) < 0)
             {
                 smallest = right;
             }
+
             if (smallest != idx)
             {
                 Swap(idx, smallest);
@@ -149,5 +157,16 @@ public class IndexedMinHeapFrontier : IReversibleFrontier<IndexedMinHeapFrontier
     {
         _heap.Clear();
         _indexMap.Clear();
+        _swaps.Clear();
+    }
+
+    public List<string> GetFrontierIds()
+    {
+        var list = new List<string>(_heap.Count);
+        foreach (var node in _heap)
+        {
+            list.Add(node.Id);
+        }
+        return list;
     }
 }

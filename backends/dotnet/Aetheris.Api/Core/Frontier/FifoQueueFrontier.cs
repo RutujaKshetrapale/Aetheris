@@ -13,19 +13,19 @@ public class FifoQueueFrontier : IReversibleFrontier<string>
 
     public string Pop()
     {
-        var element = _queue.Dequeue();
+        string element = _queue.Dequeue();
         _inQueue.Remove(element);
         return element;
     }
 
     public bool IsEmpty => _queue.Count == 0;
     public int Count => _queue.Count;
-
     public bool Contains(string id) => _inQueue.Contains(id);
-
     public void Clear()
     {
         _queue.Clear();
         _inQueue.Clear();
     }
+
+    public List<string> GetFrontierIds() => new(_queue);
 }

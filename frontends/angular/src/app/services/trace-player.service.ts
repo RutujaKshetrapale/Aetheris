@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { CellState, GridModel, TraceDelta } from '../models/contract.models';
+import { CellState, GridModel, Keyframe, TraceDelta } from '../models/contract.models';
 
 @Injectable({
   providedIn: 'root'
@@ -8,6 +8,7 @@ import { CellState, GridModel, TraceDelta } from '../models/contract.models';
 export class TracePlayerService {
   private cellStates = new Map<string, CellState>();
   private deltas: TraceDelta[] = [];
+  private keyframes: Keyframe[] = [];
   private currentStep = -1;
   private timer: any = null;
 
@@ -20,6 +21,7 @@ export class TracePlayerService {
   initGrid(grid: GridModel): void {
     this.stop();
     this.deltas = [];
+    this.keyframes = [];
     this.currentStep = -1;
     this.currentStep$.next(-1);
     this.totalSteps$.next(0);
@@ -29,9 +31,9 @@ export class TracePlayerService {
       for (let c = 0; c < grid.cols; c++) {
         const id = `r${r}c${c}`;
         let type: CellState['cellType'] = 'EMPTY';
+        if (id === grid.targetNode) type = 'TARGET';
         if (id === grid.startNode) type = 'START';
-        else if (id === grid.targetNode) type = 'TARGET';
-        map.set(id, { cellType: type, traversalState: 'UNVISITED', inPath: false, gCost: null, fCost: null, parentId: null });
+        map.set(id, { cellType: type, traversalState: 'UNVISITED', inPath: false, gCost: null, hCost: null, fCost: null, parentId: null });
       }
     }
     if (grid.cells) {
@@ -44,8 +46,9 @@ export class TracePlayerService {
     this.cellStates$.next(new Map(this.cellStates));
   }
 
-  loadTrace(trace: TraceDelta[]): void {
+  loadTrace(trace: TraceDelta[], kf: Keyframe[] = []): void {
     this.deltas = trace;
+    this.keyframes = kf;
     this.currentStep = -1;
     this.currentStep$.next(-1);
     this.totalSteps$.next(trace.length);
@@ -58,8 +61,10 @@ export class TracePlayerService {
     }
     this.currentStep++;
     const delta = this.deltas[this.currentStep];
-    this.cellStates.set(delta.nodeId, delta.afterState);
-    this.cellStates$.next(new Map(this.cellStates));
+    if (delta.nodeId && delta.afterState) {
+      this.cellStates.set(delta.nodeId, delta.afterState);
+      this.cellStates$.next(new Map(this.cellStates));
+    }
     this.currentStep$.next(this.currentStep);
     return true;
   }
@@ -67,9 +72,11 @@ export class TracePlayerService {
   stepBackward(): boolean {
     if (this.currentStep < 0) return false;
     const delta = this.deltas[this.currentStep];
-    this.cellStates.set(delta.nodeId, delta.beforeState);
+    if (delta.nodeId && delta.beforeState) {
+      this.cellStates.set(delta.nodeId, delta.beforeState);
+      this.cellStates$.next(new Map(this.cellStates));
+    }
     this.currentStep--;
-    this.cellStates$.next(new Map(this.cellStates));
     this.currentStep$.next(this.currentStep);
     return true;
   }

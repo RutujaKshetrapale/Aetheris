@@ -1,10 +1,13 @@
 package com.aetheris.domain.model;
 
 public enum TraceAction {
-    ENQUEUE,
-    DEQUEUE,
-    VISIT,
-    UPDATE_COST,
-    SET_PARENT,
-    MARK_PATH
+    INITIALIZE,
+    ENQUEUE_FRONTIER,
+    DEQUEUE_FRONTIER,
+    EXAMINE_NODE,
+    UPDATE_METRICS,
+    CLOSE_NODE,
+    DECREASE_KEY,
+    PATH_FOUND,
+    NO_PATH_FOUND
 }

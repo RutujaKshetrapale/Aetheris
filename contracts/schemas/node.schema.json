@@ -20,12 +20,14 @@
     },
     "cellType": {
       "type": "string",
-      "enum": ["EMPTY", "WALL", "START", "TARGET", "WEIGHTED"]
+      "enum": ["EMPTY", "WALL", "WEIGHTED", "START", "TARGET"]
     },
     "weight": {
-      "type": "number",
-      "minimum": 1.0,
-      "default": 1.0
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 1,
+      "description": "Integer terrain entry cost: EMPTY=1, WEIGHTED=2..100, START=0 entry cost"
     }
   },
   "additionalProperties": false

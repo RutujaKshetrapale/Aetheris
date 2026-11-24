@@ -1,21 +1,40 @@
 package com.aetheris.domain.model;
 
 public class ExecutionMetrics {
+    private int pathNodeCount;
+    private int pathEdgeCount;
+    private Integer algorithmPathCost;
+    private Integer terrainPathCost;
     private int nodesVisited;
     private int maxFrontierSize;
     private double executionTimeMs;
-    private int pathLength;
-    private double pathCost;
+    private int totalSteps;
 
     public ExecutionMetrics() {}
 
-    public ExecutionMetrics(int nodesVisited, int maxFrontierSize, double executionTimeMs, int pathLength, double pathCost) {
+    public ExecutionMetrics(int pathNodeCount, int pathEdgeCount, Integer algorithmPathCost, Integer terrainPathCost,
+                            int nodesVisited, int maxFrontierSize, double executionTimeMs, int totalSteps) {
+        this.pathNodeCount = pathNodeCount;
+        this.pathEdgeCount = pathEdgeCount;
+        this.algorithmPathCost = algorithmPathCost;
+        this.terrainPathCost = terrainPathCost;
         this.nodesVisited = nodesVisited;
         this.maxFrontierSize = maxFrontierSize;
         this.executionTimeMs = executionTimeMs;
-        this.pathLength = pathLength;
-        this.pathCost = pathCost;
+        this.totalSteps = totalSteps;
     }
+
+    public int getPathNodeCount() { return pathNodeCount; }
+    public void setPathNodeCount(int pathNodeCount) { this.pathNodeCount = pathNodeCount; }
+
+    public int getPathEdgeCount() { return pathEdgeCount; }
+    public void setPathEdgeCount(int pathEdgeCount) { this.pathEdgeCount = pathEdgeCount; }
+
+    public Integer getAlgorithmPathCost() { return algorithmPathCost; }
+    public void setAlgorithmPathCost(Integer algorithmPathCost) { this.algorithmPathCost = algorithmPathCost; }
+
+    public Integer getTerrainPathCost() { return terrainPathCost; }
+    public void setTerrainPathCost(Integer terrainPathCost) { this.terrainPathCost = terrainPathCost; }
 
     public int getNodesVisited() { return nodesVisited; }
     public void setNodesVisited(int nodesVisited) { this.nodesVisited = nodesVisited; }
@@ -26,9 +45,6 @@ public class ExecutionMetrics {
     public double getExecutionTimeMs() { return executionTimeMs; }
     public void setExecutionTimeMs(double executionTimeMs) { this.executionTimeMs = executionTimeMs; }
 
-    public int getPathLength() { return pathLength; }
-    public void setPathLength(int pathLength) { this.pathLength = pathLength; }
-
-    public double getPathCost() { return pathCost; }
-    public void setPathCost(double pathCost) { this.pathCost = pathCost; }
+    public int getTotalSteps() { return totalSteps; }
+    public void setTotalSteps(int totalSteps) { this.totalSteps = totalSteps; }
 }

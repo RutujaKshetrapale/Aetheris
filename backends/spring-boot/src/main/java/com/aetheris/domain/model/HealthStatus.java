@@ -2,6 +2,8 @@ package com.aetheris.domain.model;
 
 public class HealthStatus {
     private String status;
+    private String engineStatus;
+    private String persistenceStatus;
     private String platform;
     private String version;
     private String persistenceEngine;
@@ -9,8 +11,10 @@ public class HealthStatus {
 
     public HealthStatus() {}
 
-    public HealthStatus(String status, String platform, String version, String persistenceEngine, boolean databaseConnected) {
+    public HealthStatus(String status, String engineStatus, String persistenceStatus, String platform, String version, String persistenceEngine, boolean databaseConnected) {
         this.status = status;
+        this.engineStatus = engineStatus;
+        this.persistenceStatus = persistenceStatus;
         this.platform = platform;
         this.version = version;
         this.persistenceEngine = persistenceEngine;
@@ -19,6 +23,12 @@ public class HealthStatus {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public String getEngineStatus() { return engineStatus; }
+    public void setEngineStatus(String engineStatus) { this.engineStatus = engineStatus; }
+
+    public String getPersistenceStatus() { return persistenceStatus; }
+    public void setPersistenceStatus(String persistenceStatus) { this.persistenceStatus = persistenceStatus; }
 
     public String getPlatform() { return platform; }
     public void setPlatform(String platform) { this.platform = platform; }

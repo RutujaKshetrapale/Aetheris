@@ -3,8 +3,31 @@
   "$id": "metrics.schema.json",
   "title": "Aetheris Execution Metrics",
   "type": "object",
-  "required": ["nodesVisited", "maxFrontierSize", "executionTimeMs", "pathLength", "pathCost"],
+  "required": [
+    "pathNodeCount",
+    "pathEdgeCount",
+    "algorithmPathCost",
+    "terrainPathCost",
+    "nodesVisited",
+    "maxFrontierSize",
+    "executionTimeMs",
+    "totalSteps"
+  ],
   "properties": {
+    "pathNodeCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pathEdgeCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "algorithmPathCost": {
+      "type": ["integer", "null"]
+    },
+    "terrainPathCost": {
+      "type": ["integer", "null"]
+    },
     "nodesVisited": {
       "type": "integer",
       "minimum": 0
@@ -17,13 +40,9 @@
       "type": "number",
       "minimum": 0.0
     },
-    "pathLength": {
+    "totalSteps": {
       "type": "integer",
       "minimum": 0
-    },
-    "pathCost": {
-      "type": "number",
-      "minimum": 0.0
     }
   },
   "additionalProperties": false

@@ -6,6 +6,22 @@ namespace Aetheris.Core.Algorithm;
 
 public class PathfindingEngine
 {
+    private static readonly Direction[] Directions =
+    {
+        Direction.UP,
+        Direction.RIGHT,
+        Direction.DOWN,
+        Direction.LEFT
+    };
+
+    private static readonly Direction[] ReverseDirections =
+    {
+        Direction.LEFT,
+        Direction.DOWN,
+        Direction.RIGHT,
+        Direction.UP
+    };
+
     public PathfindingResponse Execute(PathfindingRequest request)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -21,7 +37,7 @@ public class PathfindingEngine
         var (targetR, targetC) = NodeIdUtil.Parse(targetNode);
 
         var cellTypeMap = new Dictionary<string, CellType>();
-        var weightMap = new Dictionary<string, double>();
+        var weightMap = new Dictionary<string, int>();
 
         for (int r = 0; r < rows; r++)
         {
@@ -29,7 +45,7 @@ public class PathfindingEngine
             {
                 string id = NodeIdUtil.Format(r, c);
                 cellTypeMap[id] = CellType.EMPTY;
-                weightMap[id] = 1.0;
+                weightMap[id] = 1;
             }
         }
 
@@ -42,8 +58,9 @@ public class PathfindingEngine
             }
         }
 
-        cellTypeMap[startNode] = CellType.START;
         cellTypeMap[targetNode] = CellType.TARGET;
+        cellTypeMap[startNode] = CellType.START;
+        weightMap[startNode] = 0; // START contributes zero entry cost
 
         var stateMap = new Dictionary<string, CellState>();
         for (int r = 0; r < rows; r++)
@@ -51,264 +68,334 @@ public class PathfindingEngine
             for (int c = 0; c < cols; c++)
             {
                 string id = NodeIdUtil.Format(r, c);
-                stateMap[id] = new CellState(cellTypeMap[id], TraversalState.UNVISITED, false, null, null, null);
+                stateMap[id] = new CellState(cellTypeMap[id], TraversalState.UNVISITED, false, null, null, null, null);
             }
         }
 
         var traceDeltas = new List<TraceDelta>();
+        var keyframes = new List<Keyframe>();
         int stepCounter = 0;
+        int maxFrontierSize = 0;
+        int visitedCount = 0;
+        var closedSet = new HashSet<string>();
+        string? activeNode = null;
+        Func<List<string>> getFrontierIds = () => new List<string>();
+
+        void CaptureKeyframe(int frontierSize)
+        {
+            int stepNum = stepCounter - 1;
+            var snapshot = new Dictionary<string, CellState>(stateMap.Count);
+            foreach (var kvp in stateMap)
+            {
+                snapshot[kvp.Key] = kvp.Value.Copy();
+            }
+            keyframes.Add(new Keyframe(
+                stepNum,
+                snapshot,
+                getFrontierIds(),
+                activeNode,
+                closedSet.Count
+            ));
+        }
+
+        TraceDelta RecordDelta(TraceAction action, string? nodeId, int frontierSize,
+            TraversalState? traversalState = null, bool? inPath = null,
+            int? gCost = null, int? hCost = null, int? fCost = null,
+            string? parentId = null, bool setParent = false,
+            List<HeapSwap>? heapSwaps = null, string? details = null)
+        {
+            CellState? before = null;
+            CellState? after = null;
+
+            if (nodeId != null && stateMap.TryGetValue(nodeId, out var current))
+            {
+                before = current.Copy();
+                after = before.Copy();
+                if (traversalState.HasValue) after.TraversalState = traversalState.Value;
+                if (inPath.HasValue) after.InPath = inPath.Value;
+                if (gCost.HasValue) after.GCost = gCost.Value;
+                if (hCost.HasValue) after.HCost = hCost.Value;
+                if (fCost.HasValue) after.FCost = fCost.Value;
+                if (setParent) after.ParentId = parentId;
+
+                stateMap[nodeId] = after;
+            }
+
+            var delta = new TraceDelta(
+                stepCounter++,
+                action,
+                nodeId,
+                before,
+                after,
+                frontierSize,
+                heapSwaps,
+                details
+            );
+            traceDeltas.Add(delta);
+
+            if (delta.Step % 50 == 0)
+            {
+                CaptureKeyframe(frontierSize);
+            }
+
+            return delta;
+        }
 
         bool pathFound = false;
         var path = new List<string>();
-        double pathCost = 0.0;
-        int maxFrontierSize = 0;
+        int pathNodeCount = 0;
+        int pathEdgeCount = 0;
+        int? algorithmPathCost = null;
+        int? terrainPathCost = null;
 
+        // Special Case: Start equals target
+        if (startNode == targetNode)
+        {
+            RecordDelta(TraceAction.INITIALIZE, startNode, 0,
+                traversalState: TraversalState.ACTIVE,
+                gCost: 0, hCost: 0, fCost: 0, parentId: null, setParent: true,
+                details: "Start equals target initialization");
+
+            RecordDelta(TraceAction.PATH_FOUND, startNode, 0,
+                inPath: true, traversalState: TraversalState.CLOSED,
+                details: "Target is start node");
+
+            path = new List<string> { startNode };
+            pathNodeCount = 1;
+            pathEdgeCount = 0;
+            algorithmPathCost = 0;
+            terrainPathCost = 0;
+            visitedCount = 1;
+
+            stopwatch.Stop();
+            double executionTimeMs = Math.Max(0.01, stopwatch.Elapsed.TotalMilliseconds);
+
+            return new PathfindingResponse
+            {
+                Algorithm = algorithm,
+                PathFound = true,
+                Path = path,
+                PathNodeCount = 1,
+                PathEdgeCount = 0,
+                AlgorithmPathCost = 0,
+                TerrainPathCost = 0,
+                TraceDeltas = traceDeltas,
+                Keyframes = keyframes,
+                Metrics = new ExecutionMetrics(1, 0, 0, 0, 1, 0, executionTimeMs, traceDeltas.Count),
+                Reversible = true,
+                NoPathReason = null
+            };
+        }
+
+        // Normal Execution
         if (algorithm == AlgorithmType.BFS)
         {
-            var frontier = new FifoQueueFrontier();
+            var queue = new FifoQueueFrontier();
+            getFrontierIds = queue.GetFrontierIds;
 
-            var beforeStart = stateMap[startNode].Copy();
-            var afterStart = beforeStart.Copy();
-            afterStart.TraversalState = TraversalState.IN_FRONTIER;
-            afterStart.GCost = 0.0;
-            afterStart.FCost = 0.0;
-            stateMap[startNode] = afterStart;
+            RecordDelta(TraceAction.INITIALIZE, startNode, 1,
+                traversalState: TraversalState.FRONTIER,
+                gCost: 0, hCost: 0, fCost: 0, parentId: null, setParent: true,
+                details: "Initialize start node in BFS queue");
 
-            frontier.Push(startNode);
-            maxFrontierSize = Math.Max(maxFrontierSize, frontier.Count);
-            traceDeltas.Add(new TraceDelta(stepCounter++, startNode, TraceAction.ENQUEUE, beforeStart, afterStart.Copy(), frontier.Count));
+            queue.Push(startNode);
+            maxFrontierSize = Math.Max(maxFrontierSize, queue.Count);
 
-            while (!frontier.IsEmpty)
+            while (!queue.IsEmpty)
             {
-                maxFrontierSize = Math.Max(maxFrontierSize, frontier.Count);
-                string currId = frontier.Pop();
+                maxFrontierSize = Math.Max(maxFrontierSize, queue.Count);
+                string currId = queue.Pop();
 
-                var bDeq = stateMap[currId].Copy();
-                traceDeltas.Add(new TraceDelta(stepCounter++, currId, TraceAction.DEQUEUE, bDeq, bDeq.Copy(), frontier.Count));
+                RecordDelta(TraceAction.DEQUEUE_FRONTIER, currId, queue.Count);
 
-                var bVis = stateMap[currId].Copy();
-                var aVis = bVis.Copy();
-                aVis.TraversalState = TraversalState.VISITED;
-                stateMap[currId] = aVis;
-                traceDeltas.Add(new TraceDelta(stepCounter++, currId, TraceAction.VISIT, bVis, aVis.Copy(), frontier.Count));
+                activeNode = currId;
+                RecordDelta(TraceAction.EXAMINE_NODE, currId, queue.Count, traversalState: TraversalState.ACTIVE);
+                visitedCount++;
 
                 if (currId == targetNode)
                 {
                     pathFound = true;
+                    closedSet.Add(currId);
+                    RecordDelta(TraceAction.CLOSE_NODE, currId, queue.Count, traversalState: TraversalState.CLOSED);
+                    activeNode = null;
                     break;
                 }
 
                 var (currR, currC) = NodeIdUtil.Parse(currId);
-                var currState = stateMap[currId];
+                int currGCost = stateMap[currId].GCost!.Value;
 
-                foreach (var dir in Direction.All)
+                foreach (var dir in Directions)
                 {
                     int nr = currR + dir.Dr;
                     int nc = currC + dir.Dc;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
 
-                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
-                    {
-                        string neighborId = NodeIdUtil.Format(nr, nc);
-                        var nType = cellTypeMap[neighborId];
-                        var nState = stateMap[neighborId];
+                    string nId = NodeIdUtil.Format(nr, nc);
+                    if (cellTypeMap[nId] == CellType.WALL) continue;
+                    if (queue.Contains(nId) || closedSet.Contains(nId)) continue;
 
-                        if (nType != CellType.WALL && nState.TraversalState == TraversalState.UNVISITED && !frontier.Contains(neighborId))
-                        {
-                            var bPar = stateMap[neighborId].Copy();
-                            var aPar = bPar.Copy();
-                            aPar.ParentId = currId;
-                            aPar.GCost = currState.GCost + 1.0;
-                            stateMap[neighborId] = aPar;
-                            traceDeltas.Add(new TraceDelta(stepCounter++, neighborId, TraceAction.SET_PARENT, bPar, aPar.Copy(), frontier.Count));
+                    int newGCost = currGCost + 1;
+                    RecordDelta(TraceAction.ENQUEUE_FRONTIER, nId, queue.Count + 1,
+                        traversalState: TraversalState.FRONTIER,
+                        gCost: newGCost, fCost: newGCost, parentId: currId, setParent: true);
 
-                            frontier.Push(neighborId);
-                            maxFrontierSize = Math.Max(maxFrontierSize, frontier.Count);
-                            var bEnq = stateMap[neighborId].Copy();
-                            var aEnq = bEnq.Copy();
-                            aEnq.TraversalState = TraversalState.IN_FRONTIER;
-                            stateMap[neighborId] = aEnq;
-                            traceDeltas.Add(new TraceDelta(stepCounter++, neighborId, TraceAction.ENQUEUE, bEnq, aEnq.Copy(), frontier.Count));
-                        }
-                    }
+                    queue.Push(nId);
+                    maxFrontierSize = Math.Max(maxFrontierSize, queue.Count);
                 }
+
+                closedSet.Add(currId);
+                RecordDelta(TraceAction.CLOSE_NODE, currId, queue.Count, traversalState: TraversalState.CLOSED);
+                activeNode = null;
             }
         }
         else if (algorithm == AlgorithmType.DFS)
         {
-            var frontier = new LifoStackFrontier();
+            var stack = new LifoStackFrontier();
+            getFrontierIds = stack.GetFrontierIds;
 
-            var beforeStart = stateMap[startNode].Copy();
-            var afterStart = beforeStart.Copy();
-            afterStart.TraversalState = TraversalState.IN_FRONTIER;
-            afterStart.GCost = 0.0;
-            afterStart.FCost = 0.0;
-            stateMap[startNode] = afterStart;
+            RecordDelta(TraceAction.INITIALIZE, startNode, 1,
+                traversalState: TraversalState.FRONTIER,
+                gCost: 0, hCost: 0, fCost: 0, parentId: null, setParent: true,
+                details: "Initialize start node in DFS stack");
 
-            frontier.Push(startNode);
-            maxFrontierSize = Math.Max(maxFrontierSize, frontier.Count);
-            traceDeltas.Add(new TraceDelta(stepCounter++, startNode, TraceAction.ENQUEUE, beforeStart, afterStart.Copy(), frontier.Count));
+            stack.Push(startNode);
+            maxFrontierSize = Math.Max(maxFrontierSize, stack.Count);
 
-            while (!frontier.IsEmpty)
+            while (!stack.IsEmpty)
             {
-                maxFrontierSize = Math.Max(maxFrontierSize, frontier.Count);
-                string currId = frontier.Pop();
+                maxFrontierSize = Math.Max(maxFrontierSize, stack.Count);
+                string currId = stack.Pop();
 
-                var bDeq = stateMap[currId].Copy();
-                traceDeltas.Add(new TraceDelta(stepCounter++, currId, TraceAction.DEQUEUE, bDeq, bDeq.Copy(), frontier.Count));
+                RecordDelta(TraceAction.DEQUEUE_FRONTIER, currId, stack.Count);
 
-                var bVis = stateMap[currId].Copy();
-                var aVis = bVis.Copy();
-                aVis.TraversalState = TraversalState.VISITED;
-                stateMap[currId] = aVis;
-                traceDeltas.Add(new TraceDelta(stepCounter++, currId, TraceAction.VISIT, bVis, aVis.Copy(), frontier.Count));
+                activeNode = currId;
+                RecordDelta(TraceAction.EXAMINE_NODE, currId, stack.Count, traversalState: TraversalState.ACTIVE);
+                visitedCount++;
 
                 if (currId == targetNode)
                 {
                     pathFound = true;
+                    closedSet.Add(currId);
+                    RecordDelta(TraceAction.CLOSE_NODE, currId, stack.Count, traversalState: TraversalState.CLOSED);
+                    activeNode = null;
                     break;
                 }
 
                 var (currR, currC) = NodeIdUtil.Parse(currId);
-                var currState = stateMap[currId];
+                int currGCost = stateMap[currId].GCost!.Value;
 
-                var validNeighbors = new List<string>();
-                foreach (var dir in Direction.All)
+                // Push in reverse order (LEFT, DOWN, RIGHT, UP) so pop order is UP, RIGHT, DOWN, LEFT
+                foreach (var dir in ReverseDirections)
                 {
                     int nr = currR + dir.Dr;
                     int nc = currC + dir.Dc;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
 
-                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
-                    {
-                        string neighborId = NodeIdUtil.Format(nr, nc);
-                        var nType = cellTypeMap[neighborId];
-                        var nState = stateMap[neighborId];
+                    string nId = NodeIdUtil.Format(nr, nc);
+                    if (cellTypeMap[nId] == CellType.WALL) continue;
+                    if (stack.Contains(nId) || closedSet.Contains(nId)) continue;
 
-                        if (nType != CellType.WALL && nState.TraversalState == TraversalState.UNVISITED && !frontier.Contains(neighborId))
-                        {
-                            validNeighbors.Add(neighborId);
-                        }
-                    }
+                    int newGCost = currGCost + 1;
+                    RecordDelta(TraceAction.ENQUEUE_FRONTIER, nId, stack.Count + 1,
+                        traversalState: TraversalState.FRONTIER,
+                        gCost: newGCost, fCost: newGCost, parentId: currId, setParent: true);
+
+                    stack.Push(nId);
+                    maxFrontierSize = Math.Max(maxFrontierSize, stack.Count);
                 }
 
-                // Push in reverse order so UP is popped first
-                for (int i = validNeighbors.Count - 1; i >= 0; i--)
-                {
-                    string nId = validNeighbors[i];
-
-                    var bPar = stateMap[nId].Copy();
-                    var aPar = bPar.Copy();
-                    aPar.ParentId = currId;
-                    aPar.GCost = currState.GCost + 1.0;
-                    stateMap[nId] = aPar;
-                    traceDeltas.Add(new TraceDelta(stepCounter++, nId, TraceAction.SET_PARENT, bPar, aPar.Copy(), frontier.Count));
-
-                    frontier.Push(nId);
-                    maxFrontierSize = Math.Max(maxFrontierSize, frontier.Count);
-                    var bEnq = stateMap[nId].Copy();
-                    var aEnq = bEnq.Copy();
-                    aEnq.TraversalState = TraversalState.IN_FRONTIER;
-                    stateMap[nId] = aEnq;
-                    traceDeltas.Add(new TraceDelta(stepCounter++, nId, TraceAction.ENQUEUE, bEnq, aEnq.Copy(), frontier.Count));
-                }
+                closedSet.Add(currId);
+                RecordDelta(TraceAction.CLOSE_NODE, currId, stack.Count, traversalState: TraversalState.CLOSED);
+                activeNode = null;
             }
         }
         else if (algorithm == AlgorithmType.DIJKSTRA || algorithm == AlgorithmType.ASTAR)
         {
             bool isAStar = (algorithm == AlgorithmType.ASTAR);
             var heap = new IndexedMinHeapFrontier(isAStar);
-            long seqCounter = 0;
+            getFrontierIds = heap.GetFrontierIds;
+            long enqueueSeq = 0;
 
-            double hStart = isAStar ? HeuristicCalculator.Calculate(request.Heuristic, startR, startC, targetR, targetC) : 0.0;
-            var startNodeItem = new IndexedMinHeapFrontier.HeapNode(startNode, startR, startC, 0.0, hStart, hStart, seqCounter++);
+            int startH = isAStar ? HeuristicCalculator.Calculate(request.Heuristic, startR, startC, targetR, targetC) : 0;
+            int startF = startH;
 
-            var beforeStart = stateMap[startNode].Copy();
-            var afterStart = beforeStart.Copy();
-            afterStart.TraversalState = TraversalState.IN_FRONTIER;
-            afterStart.GCost = 0.0;
-            afterStart.FCost = hStart;
-            stateMap[startNode] = afterStart;
+            RecordDelta(TraceAction.INITIALIZE, startNode, 1,
+                traversalState: TraversalState.FRONTIER,
+                gCost: 0, hCost: startH, fCost: startF, parentId: null, setParent: true,
+                details: "Initialize start node in indexed min-heap");
 
-            heap.Push(startNodeItem);
+            heap.Push(new IndexedMinHeapFrontier.HeapNode(startNode, startR, startC, 0, startH, startF, enqueueSeq++));
+            heap.DrainSwaps();
             maxFrontierSize = Math.Max(maxFrontierSize, heap.Count);
-            traceDeltas.Add(new TraceDelta(stepCounter++, startNode, TraceAction.ENQUEUE, beforeStart, afterStart.Copy(), heap.Count));
 
             while (!heap.IsEmpty)
             {
                 maxFrontierSize = Math.Max(maxFrontierSize, heap.Count);
                 var top = heap.Pop();
+                var popSwaps = heap.DrainSwaps();
 
-                var bDeq = stateMap[top.Id].Copy();
-                traceDeltas.Add(new TraceDelta(stepCounter++, top.Id, TraceAction.DEQUEUE, bDeq, bDeq.Copy(), heap.Count));
+                RecordDelta(TraceAction.DEQUEUE_FRONTIER, top.Id, heap.Count, heapSwaps: popSwaps);
 
-                var bVis = stateMap[top.Id].Copy();
-                var aVis = bVis.Copy();
-                aVis.TraversalState = TraversalState.VISITED;
-                stateMap[top.Id] = aVis;
-                traceDeltas.Add(new TraceDelta(stepCounter++, top.Id, TraceAction.VISIT, bVis, aVis.Copy(), heap.Count));
+                activeNode = top.Id;
+                RecordDelta(TraceAction.EXAMINE_NODE, top.Id, heap.Count, traversalState: TraversalState.ACTIVE);
+                visitedCount++;
 
                 if (top.Id == targetNode)
                 {
                     pathFound = true;
+                    closedSet.Add(top.Id);
+                    RecordDelta(TraceAction.CLOSE_NODE, top.Id, heap.Count, traversalState: TraversalState.CLOSED);
+                    activeNode = null;
                     break;
                 }
 
-                var currState = stateMap[top.Id];
+                int currGCost = top.GCost;
 
-                foreach (var dir in Direction.All)
+                foreach (var dir in Directions)
                 {
                     int nr = top.Row + dir.Dr;
                     int nc = top.Col + dir.Dc;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
 
-                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols)
+                    string nId = NodeIdUtil.Format(nr, nc);
+                    if (cellTypeMap[nId] == CellType.WALL) continue;
+                    if (closedSet.Contains(nId)) continue;
+
+                    int entryCost = weightMap[nId];
+                    int newGCost = currGCost + entryCost;
+                    int hCost = isAStar ? HeuristicCalculator.Calculate(request.Heuristic, nr, nc, targetR, targetC) : 0;
+                    int newFCost = newGCost + hCost;
+
+                    if (heap.Contains(nId))
                     {
-                        string neighborId = NodeIdUtil.Format(nr, nc);
-                        var nType = cellTypeMap[neighborId];
-                        var nState = stateMap[neighborId];
-
-                        if (nType == CellType.WALL || nState.TraversalState == TraversalState.VISITED)
+                        var currNeigh = stateMap[nId];
+                        if (newGCost < currNeigh.GCost!.Value)
                         {
-                            continue;
-                        }
+                            heap.DecreaseKey(nId, newGCost, newFCost);
+                            var decSwaps = heap.DrainSwaps();
 
-                        double edgeWeight = weightMap.TryGetValue(neighborId, out double w) ? w : 1.0;
-                        double tentativeGCost = currState.GCost!.Value + edgeWeight;
-                        double h = isAStar ? HeuristicCalculator.Calculate(request.Heuristic, nr, nc, targetR, targetC) : 0.0;
-                        double tentativeFCost = tentativeGCost + h;
-
-                        if (nState.TraversalState == TraversalState.UNVISITED)
-                        {
-                            var bPar = stateMap[neighborId].Copy();
-                            var aPar = bPar.Copy();
-                            aPar.ParentId = top.Id;
-                            aPar.GCost = tentativeGCost;
-                            aPar.FCost = tentativeFCost;
-                            stateMap[neighborId] = aPar;
-                            traceDeltas.Add(new TraceDelta(stepCounter++, neighborId, TraceAction.SET_PARENT, bPar, aPar.Copy(), heap.Count));
-
-                            var item = new IndexedMinHeapFrontier.HeapNode(neighborId, nr, nc, tentativeGCost, h, tentativeFCost, seqCounter++);
-                            heap.Push(item);
-                            maxFrontierSize = Math.Max(maxFrontierSize, heap.Count);
-
-                            var bEnq = stateMap[neighborId].Copy();
-                            var aEnq = bEnq.Copy();
-                            aEnq.TraversalState = TraversalState.IN_FRONTIER;
-                            stateMap[neighborId] = aEnq;
-                            traceDeltas.Add(new TraceDelta(stepCounter++, neighborId, TraceAction.ENQUEUE, bEnq, aEnq.Copy(), heap.Count));
-                        }
-                        else if (nState.TraversalState == TraversalState.IN_FRONTIER && tentativeGCost < nState.GCost!.Value)
-                        {
-                            var bUpd = stateMap[neighborId].Copy();
-                            var aUpd = bUpd.Copy();
-                            aUpd.ParentId = top.Id;
-                            aUpd.GCost = tentativeGCost;
-                            aUpd.FCost = tentativeFCost;
-                            stateMap[neighborId] = aUpd;
-                            traceDeltas.Add(new TraceDelta(stepCounter++, neighborId, TraceAction.UPDATE_COST, bUpd, aUpd.Copy(), heap.Count));
-
-                            heap.Update(neighborId, tentativeGCost, tentativeFCost);
+                            RecordDelta(TraceAction.DECREASE_KEY, nId, heap.Count,
+                                gCost: newGCost, fCost: newFCost, parentId: top.Id, setParent: true,
+                                heapSwaps: decSwaps, details: $"Relaxation via {top.Id}");
                         }
                     }
+                    else
+                    {
+                        heap.Push(new IndexedMinHeapFrontier.HeapNode(nId, nr, nc, newGCost, hCost, newFCost, enqueueSeq++));
+                        var pushSwaps = heap.DrainSwaps();
+
+                        RecordDelta(TraceAction.ENQUEUE_FRONTIER, nId, heap.Count,
+                            traversalState: TraversalState.FRONTIER,
+                            gCost: newGCost, hCost: hCost, fCost: newFCost, parentId: top.Id, setParent: true,
+                            heapSwaps: pushSwaps);
+
+                        maxFrontierSize = Math.Max(maxFrontierSize, heap.Count);
+                    }
                 }
+
+                closedSet.Add(top.Id);
+                RecordDelta(TraceAction.CLOSE_NODE, top.Id, heap.Count, traversalState: TraversalState.CLOSED);
+                activeNode = null;
             }
         }
 
@@ -323,33 +410,69 @@ public class PathfindingEngine
             }
             rev.Reverse();
             path = rev;
-            pathCost = stateMap[targetNode].GCost!.Value;
+            pathNodeCount = path.Count;
+            pathEdgeCount = Math.Max(0, path.Count - 1);
+
+            int terrainCost = 0;
+            for (int i = 1; i < path.Count; i++)
+            {
+                terrainCost += weightMap[path[i]];
+            }
+            terrainPathCost = terrainCost;
+
+            if (algorithm == AlgorithmType.BFS || algorithm == AlgorithmType.DFS)
+            {
+                algorithmPathCost = pathEdgeCount;
+            }
+            else
+            {
+                algorithmPathCost = terrainCost;
+            }
 
             foreach (var pId in path)
             {
-                var bMark = stateMap[pId].Copy();
-                var aMark = bMark.Copy();
-                aMark.InPath = true;
-                stateMap[pId] = aMark;
-                traceDeltas.Add(new TraceDelta(stepCounter++, pId, TraceAction.MARK_PATH, bMark, aMark.Copy(), 0));
+                RecordDelta(TraceAction.PATH_FOUND, pId, 0, inPath: true);
             }
+        }
+        else
+        {
+            path = new List<string>();
+            pathNodeCount = 0;
+            pathEdgeCount = 0;
+            algorithmPathCost = null;
+            terrainPathCost = null;
+
+            RecordDelta(TraceAction.NO_PATH_FOUND, null, 0, details: "FRONTIER_EXHAUSTED");
         }
 
         stopwatch.Stop();
-        double executionTimeMs = Math.Max(0.01, stopwatch.Elapsed.TotalMilliseconds);
-        int visitedCount = stateMap.Values.Count(s => s.TraversalState == TraversalState.VISITED);
+        double totalExecutionTimeMs = Math.Max(0.01, stopwatch.Elapsed.TotalMilliseconds);
 
-        var metrics = new ExecutionMetrics(visitedCount, maxFrontierSize, executionTimeMs, path.Count, pathCost);
+        var metrics = new ExecutionMetrics(
+            pathNodeCount,
+            pathEdgeCount,
+            algorithmPathCost,
+            terrainPathCost,
+            visitedCount,
+            maxFrontierSize,
+            totalExecutionTimeMs,
+            traceDeltas.Count
+        );
 
         return new PathfindingResponse
         {
             Algorithm = algorithm,
             PathFound = pathFound,
             Path = path,
-            PathCost = pathCost,
+            PathNodeCount = pathNodeCount,
+            PathEdgeCount = pathEdgeCount,
+            AlgorithmPathCost = algorithmPathCost,
+            TerrainPathCost = terrainPathCost,
             TraceDeltas = traceDeltas,
+            Keyframes = keyframes,
             Metrics = metrics,
-            Reversible = true
+            Reversible = true,
+            NoPathReason = pathFound ? null : "FRONTIER_EXHAUSTED"
         };
     }
 }

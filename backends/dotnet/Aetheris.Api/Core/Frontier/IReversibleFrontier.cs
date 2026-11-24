@@ -8,4 +8,5 @@ public interface IReversibleFrontier<T>
     int Count { get; }
     bool Contains(string id);
     void Clear();
+    List<string> GetFrontierIds();
 }

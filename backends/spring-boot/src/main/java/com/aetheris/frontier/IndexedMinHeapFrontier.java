@@ -1,9 +1,8 @@
 package com.aetheris.frontier;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.aetheris.domain.model.HeapSwap;
+
+import java.util.*;
 
 public class IndexedMinHeapFrontier implements ReversibleFrontier<IndexedMinHeapFrontier.HeapNode> {
 
@@ -11,12 +10,12 @@ public class IndexedMinHeapFrontier implements ReversibleFrontier<IndexedMinHeap
         public final String id;
         public final int row;
         public final int col;
-        public double gCost;
-        public double hCost;
-        public double fCost;
+        public int gCost;
+        public int hCost;
+        public int fCost;
         public final long seq;
 
-        public HeapNode(String id, int row, int col, double gCost, double hCost, double fCost, long seq) {
+        public HeapNode(String id, int row, int col, int gCost, int hCost, int fCost, long seq) {
             this.id = id;
             this.row = row;
             this.col = col;
@@ -30,33 +29,43 @@ public class IndexedMinHeapFrontier implements ReversibleFrontier<IndexedMinHeap
     private final boolean isAStar;
     private final List<HeapNode> heap = new ArrayList<>();
     private final Map<String, Integer> indexMap = new HashMap<>();
+    private final List<HeapSwap> swaps = new ArrayList<>();
 
     public IndexedMinHeapFrontier(boolean isAStar) {
         this.isAStar = isAStar;
     }
 
+    public List<HeapSwap> drainSwaps() {
+        List<HeapSwap> result = new ArrayList<>(swaps);
+        swaps.clear();
+        return result;
+    }
+
     private int compare(HeapNode a, HeapNode b) {
-        if (Math.abs(a.fCost - b.fCost) > 1e-9) {
-            return Double.compare(a.fCost, b.fCost);
-        }
-        if (isAStar && Math.abs(a.hCost - b.hCost) > 1e-9) {
-            return Double.compare(a.hCost, b.hCost);
-        }
-        if (a.seq != b.seq) {
+        if (isAStar) {
+            if (a.fCost != b.fCost) {
+                return Integer.compare(a.fCost, b.fCost);
+            }
+            if (a.hCost != b.hCost) {
+                return Integer.compare(a.hCost, b.hCost);
+            }
+            return Long.compare(a.seq, b.seq);
+        } else {
+            if (a.gCost != b.gCost) {
+                return Integer.compare(a.gCost, b.gCost);
+            }
             return Long.compare(a.seq, b.seq);
         }
-        if (a.row != b.row) {
-            return Integer.compare(a.row, b.row);
-        }
-        return Integer.compare(a.col, b.col);
     }
 
     private void swap(int i, int j) {
-        HeapNode temp = heap.get(i);
-        heap.set(i, heap.get(j));
-        heap.set(j, temp);
-        indexMap.put(heap.get(i).id, i);
-        indexMap.put(heap.get(j).id, j);
+        HeapNode nodeA = heap.get(i);
+        HeapNode nodeB = heap.get(j);
+        heap.set(i, nodeB);
+        heap.set(j, nodeA);
+        indexMap.put(nodeB.id, i);
+        indexMap.put(nodeA.id, j);
+        swaps.add(new HeapSwap(i, j, nodeA.id, nodeB.id));
     }
 
     @Override
@@ -81,7 +90,7 @@ public class IndexedMinHeapFrontier implements ReversibleFrontier<IndexedMinHeap
         return top;
     }
 
-    public void update(String id, double newGCost, double newFCost) {
+    public void decreaseKey(String id, int newGCost, int newFCost) {
         Integer idx = indexMap.get(id);
         if (idx == null) return;
         HeapNode node = heap.get(idx);
@@ -108,12 +117,14 @@ public class IndexedMinHeapFrontier implements ReversibleFrontier<IndexedMinHeap
             int left = 2 * idx + 1;
             int right = 2 * idx + 2;
             int smallest = idx;
+
             if (left < size && compare(heap.get(left), heap.get(smallest)) < 0) {
                 smallest = left;
             }
             if (right < size && compare(heap.get(right), heap.get(smallest)) < 0) {
                 smallest = right;
             }
+
             if (smallest != idx) {
                 swap(idx, smallest);
                 idx = smallest;
@@ -142,5 +153,15 @@ public class IndexedMinHeapFrontier implements ReversibleFrontier<IndexedMinHeap
     public void clear() {
         heap.clear();
         indexMap.clear();
+        swaps.clear();
+    }
+
+    @Override
+    public List<String> getFrontierIds() {
+        List<String> list = new ArrayList<>(heap.size());
+        for (HeapNode n : heap) {
+            list.add(n.id);
+        }
+        return list;
     }
 }

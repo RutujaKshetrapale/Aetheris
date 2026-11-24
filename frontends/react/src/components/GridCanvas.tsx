@@ -19,12 +19,15 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({ grid, cellStates, onCell
       return 'cell state-in-path';
     }
 
-    // Layer 2: Traversal dynamic state
-    if (state.traversalState === 'IN_FRONTIER') {
+    // Layer 2: Traversal dynamic state (FRONTIER, ACTIVE, CLOSED)
+    if (state.traversalState === 'ACTIVE') {
+      return 'cell state-active';
+    }
+    if (state.traversalState === 'FRONTIER') {
       return 'cell state-frontier';
     }
-    if (state.traversalState === 'VISITED') {
-      return 'cell state-visited';
+    if (state.traversalState === 'CLOSED') {
+      return 'cell state-closed';
     }
 
     // Layer 1: Structural CellType
@@ -64,7 +67,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({ grid, cellStates, onCell
                 key={id}
                 onClick={() => onCellClick?.(id)}
                 className={`w-full h-full flex flex-col items-center justify-center cursor-pointer select-none text-[10px] font-mono font-medium ${getCellClasses(id)}`}
-                title={`${id} | Type: ${state?.cellType} | State: ${state?.traversalState} | g: ${state?.gCost ?? '∞'} | f: ${state?.fCost ?? '∞'}`}
+                title={`${id} | Type: ${state?.cellType} | State: ${state?.traversalState} | g: ${state?.gCost ?? '—'} | f: ${state?.fCost ?? '—'}`}
               >
                 {isStart && <span className="font-bold text-white text-xs">S</span>}
                 {isTarget && <span className="font-bold text-white text-xs">T</span>}
@@ -81,11 +84,11 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({ grid, cellStates, onCell
       <div className="flex flex-wrap items-center justify-center gap-4 mt-6 text-xs text-slate-300">
         <div className="flex items-center gap-1.5">
           <div className="w-3.5 h-3.5 rounded bg-emerald-500 border border-emerald-400"></div>
-          <span>Start (r0c0)</span>
+          <span>Start ({grid.startNode})</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3.5 h-3.5 rounded bg-rose-500 border border-rose-400"></div>
-          <span>Target (r4c4)</span>
+          <span>Target ({grid.targetNode})</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3.5 h-3.5 rounded bg-slate-900 border border-slate-700"></div>
@@ -93,7 +96,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({ grid, cellStates, onCell
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3.5 h-3.5 rounded bg-amber-600/40 border border-amber-500"></div>
-          <span>Weighted Cell (Cost 5.0)</span>
+          <span>Weighted Cell (Cost 5)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3.5 h-3.5 rounded bg-sky-400 border border-sky-300"></div>
@@ -101,7 +104,7 @@ export const GridCanvas: React.FC<GridCanvasProps> = ({ grid, cellStates, onCell
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3.5 h-3.5 rounded bg-indigo-500/50 border border-indigo-400"></div>
-          <span>Visited</span>
+          <span>Closed</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3.5 h-3.5 rounded bg-amber-400 border border-amber-200"></div>

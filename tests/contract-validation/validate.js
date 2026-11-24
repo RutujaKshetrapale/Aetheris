@@ -3,13 +3,13 @@ const path = require('path');
 const yaml = require('yaml');
 const Ajv2020 = require('ajv/dist/2020');
 
-console.log('=== AETHERIS CONTRACT & SCHEMA VALIDATOR ===');
+console.log('=== AETHERIS CONTRACT & SCHEMA VALIDATOR ===\n');
 
 let errorCount = 0;
 
-// 1. Validate OpenAPI Contract
+// 1. Validate OpenAPI 3.2.0 Contract
 const openApiPath = path.resolve(__dirname, '../../contracts/openapi.yaml');
-console.log(`\n[1/3] Validating OpenAPI Contract: ${openApiPath}`);
+console.log(`[1/3] Validating OpenAPI Contract: ${openApiPath}`);
 
 if (!fs.existsSync(openApiPath)) {
   console.error(`FAIL: OpenAPI file not found at ${openApiPath}`);
@@ -24,10 +24,19 @@ try {
   console.log(`  Title: ${openApiDoc.info?.title}`);
   console.log(`  Contract Version: ${openApiDoc.info?.version}`);
 
+  if (openApiDoc.openapi !== '3.2.0') {
+    console.error(`  FAIL: OpenAPI version must be 3.2.0, found ${openApiDoc.openapi}`);
+    errorCount++;
+  } else {
+    console.log(`  OK: OpenAPI version is 3.2.0`);
+  }
+
   const requiredPaths = [
     '/api/v1/health',
+    '/api/v1/health/live',
+    '/api/v1/health/ready',
     '/api/v1/pathfinding/algorithms',
-    '/api/v1/pathfinding/find',
+    '/api/v1/pathfinding/trace',
     '/api/v1/presets',
     '/api/v1/presets/{id}'
   ];
@@ -48,13 +57,20 @@ try {
     'CellType',
     'TraversalState',
     'TraceAction',
+    'CellDefinition',
     'CellState',
     'GridModel',
+    'HeapSwap',
     'TraceDelta',
+    'Keyframe',
     'ExecutionMetrics',
     'PathfindingRequest',
     'PathfindingResponse',
-    'HealthStatus'
+    'AlgorithmInfo',
+    'GridPreset',
+    'HealthStatus',
+    'ProbeStatus',
+    'ProblemDetails'
   ];
 
   for (const s of requiredSchemas) {
@@ -72,8 +88,8 @@ try {
   errorCount++;
 }
 
-// 2. Validate JSON Schemas
-console.log('\n[2/3] Validating Shared JSON Schemas');
+// 2. Validate JSON Schemas (Draft 2020-12)
+console.log('\n[2/3] Validating Shared JSON Schemas (Draft 2020-12)');
 const schemasDir = path.resolve(__dirname, '../../contracts/schemas');
 const schemaFiles = fs.readdirSync(schemasDir).filter(f => f.endsWith('.json'));
 
@@ -115,6 +131,7 @@ const fixtureFiles = fs.readdirSync(fixturesDir).filter(f => f.endsWith('.fixtur
 
 const gridValidator = ajv.getSchema('grid.schema.json');
 const traceDeltaValidator = ajv.getSchema('trace-delta.schema.json');
+const keyframeValidator = ajv.getSchema('keyframe.schema.json');
 
 for (const fFile of fixtureFiles) {
   const fPath = path.join(fixturesDir, fFile);
@@ -122,9 +139,9 @@ for (const fFile of fixtureFiles) {
 
   console.log(`\n  Checking Fixture: ${fFile}`);
   console.log(`    Algorithm: ${fixture.algorithm}`);
-  console.log(`    Expected Path: ${fixture.expectedOutcome.path.join(' -> ')}`);
-  console.log(`    Path Cost: ${fixture.expectedOutcome.pathCost}, Length: ${fixture.expectedOutcome.pathLength}`);
-  console.log(`    Trace Deltas: ${fixture.traceDeltas.length}`);
+  console.log(`    Expected Path: ${fixture.expectedOutcome.path ? fixture.expectedOutcome.path.join(' -> ') : '[NONE]'}`);
+  console.log(`    Cost: algorithm=${fixture.expectedOutcome.algorithmPathCost}, terrain=${fixture.expectedOutcome.terrainPathCost}`);
+  console.log(`    Trace Deltas: ${fixture.traceDeltas.length}, Keyframes: ${fixture.keyframes ? fixture.keyframes.length : 0}`);
 
   // Validate grid
   const validGrid = gridValidator(fixture.grid);
@@ -150,6 +167,24 @@ for (const fFile of fixtureFiles) {
 
   if (deltasValid) {
     console.log(`    OK: All ${fixture.traceDeltas.length} trace deltas conform to trace-delta.schema.json`);
+  }
+
+  // Validate keyframes if present
+  if (fixture.keyframes && fixture.keyframes.length > 0) {
+    let keyframesValid = true;
+    for (let i = 0; i < fixture.keyframes.length; i++) {
+      const kf = fixture.keyframes[i];
+      const valid = keyframeValidator(kf);
+      if (!valid) {
+        console.error(`    FAIL: Keyframe at index ${i} invalid:`, keyframeValidator.errors);
+        keyframesValid = false;
+        errorCount++;
+        break;
+      }
+    }
+    if (keyframesValid) {
+      console.log(`    OK: All ${fixture.keyframes.length} keyframes conform to keyframe.schema.json`);
+    }
   }
 }
 

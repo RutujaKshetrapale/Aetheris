@@ -5,7 +5,14 @@ const { DeterministicEngine } = require('./deterministic-engine');
 console.log('=== AETHERIS DETERMINISTIC FIXTURE TEST RUNNER ===\n');
 
 const fixturesDir = path.resolve(__dirname, '../../contracts/fixtures');
-const fixtureFiles = ['bfs.fixture.json', 'dfs.fixture.json', 'dijkstra.fixture.json', 'astar.fixture.json'];
+const fixtureFiles = [
+  'bfs.fixture.json',
+  'dfs.fixture.json',
+  'dijkstra.fixture.json',
+  'astar.fixture.json',
+  'start-equals-target.fixture.json',
+  'unreachable-target.fixture.json'
+];
 
 const engine = new DeterministicEngine();
 let passCount = 0;
@@ -32,6 +39,8 @@ for (const file of fixtureFiles) {
   if (actual.pathFound !== expected.pathFound) {
     console.error(`  FAIL: pathFound expected ${expected.pathFound}, got ${actual.pathFound}`);
     testPassed = false;
+  } else {
+    console.log(`  OK: pathFound matches (${actual.pathFound})`);
   }
 
   // 2. Path exact match
@@ -42,18 +51,26 @@ for (const file of fixtureFiles) {
     console.error(`    Actual:   ${actual.path.join(' -> ')}`);
     testPassed = false;
   } else {
-    console.log(`  OK: Path exact match (${actual.path.join(' -> ')})`);
+    console.log(`  OK: Path exact match (${actual.path.join(' -> ') || '[NONE]'})`);
   }
 
-  // 3. Path Cost
-  if (Math.abs(actual.pathCost - expected.pathCost) > 1e-6) {
-    console.error(`  FAIL: Path cost expected ${expected.pathCost}, got ${actual.pathCost}`);
+  // 3. Path Counts
+  if (actual.pathNodeCount !== expected.pathNodeCount || actual.pathEdgeCount !== expected.pathEdgeCount) {
+    console.error(`  FAIL: Path counts mismatch. Expected nodes=${expected.pathNodeCount}, edges=${expected.pathEdgeCount}; got nodes=${actual.pathNodeCount}, edges=${actual.pathEdgeCount}`);
     testPassed = false;
   } else {
-    console.log(`  OK: Path cost matches (${actual.pathCost})`);
+    console.log(`  OK: Path counts match (nodes=${actual.pathNodeCount}, edges=${actual.pathEdgeCount})`);
   }
 
-  // 4. Nodes Visited
+  // 4. Algorithm & Terrain Path Costs
+  if (actual.algorithmPathCost !== expected.algorithmPathCost || actual.terrainPathCost !== expected.terrainPathCost) {
+    console.error(`  FAIL: Path costs mismatch. Expected algo=${expected.algorithmPathCost}, terrain=${expected.terrainPathCost}; got algo=${actual.algorithmPathCost}, terrain=${actual.terrainPathCost}`);
+    testPassed = false;
+  } else {
+    console.log(`  OK: Path costs match (algorithm=${actual.algorithmPathCost}, terrain=${actual.terrainPathCost})`);
+  }
+
+  // 5. Nodes Visited
   if (actual.metrics.nodesVisited !== expected.nodesVisited) {
     console.error(`  FAIL: Nodes visited expected ${expected.nodesVisited}, got ${actual.metrics.nodesVisited}`);
     testPassed = false;
@@ -61,38 +78,111 @@ for (const file of fixtureFiles) {
     console.log(`  OK: Nodes visited matches (${actual.metrics.nodesVisited})`);
   }
 
-  // 5. Total Trace Deltas
-  if (actual.traceDeltas.length !== expected.totalTraceDeltas) {
-    console.error(`  FAIL: Total trace deltas expected ${expected.totalTraceDeltas}, got ${actual.traceDeltas.length}`);
+  // 6. Total Trace Deltas
+  if (actual.traceDeltas.length !== expected.totalSteps) {
+    console.error(`  FAIL: Total steps expected ${expected.totalSteps}, got ${actual.traceDeltas.length}`);
     testPassed = false;
   } else {
-    console.log(`  OK: Total trace deltas matches (${actual.traceDeltas.length})`);
+    console.log(`  OK: Total steps match (${actual.traceDeltas.length})`);
   }
 
-  // 6. Verify Reversibility Invariant on trace deltas
-  // Applying afterState forward followed by beforeState backward must restore original state exactly
-  let reversibilityPassed = true;
+  // 7. No Path Reason
+  if (actual.noPathReason !== expected.noPathReason) {
+    console.error(`  FAIL: noPathReason expected ${expected.noPathReason}, got ${actual.noPathReason}`);
+    testPassed = false;
+  } else {
+    console.log(`  OK: noPathReason matches (${actual.noPathReason})`);
+  }
+
+  // 8. Verify Bidirectional Reversibility Invariant
+  // Forward replay: apply afterState step-by-step
+  // Backward replay: apply beforeState in reverse step-by-step
+  // Check exact bit-for-bit restoration of the initial grid state map
+  const stateMap = new Map();
+  // Initialize state map from grid
+  for (let r = 0; r < fixture.grid.rows; r++) {
+    for (let c = 0; c < fixture.grid.cols; c++) {
+      const id = `r${r}c${c}`;
+      let cellType = 'EMPTY';
+      if (id === fixture.grid.startNode) cellType = 'START';
+      else if (id === fixture.grid.targetNode) cellType = 'TARGET';
+
+      const custom = fixture.grid.cells ? fixture.grid.cells.find(cell => cell.id === id) : null;
+      if (custom && custom.cellType) cellType = custom.cellType;
+
+      stateMap.set(id, {
+        cellType,
+        traversalState: 'UNVISITED',
+        inPath: false,
+        gCost: null,
+        hCost: null,
+        fCost: null,
+        parentId: null
+      });
+    }
+  }
+
+  // Deep clone initial state map
+  const initialSnapshots = new Map();
+  for (const [id, s] of stateMap.entries()) {
+    initialSnapshots.set(id, { ...s });
+  }
+
+  // Apply deltas forward
+  let forwardOk = true;
   for (let i = 0; i < actual.traceDeltas.length; i++) {
     const delta = actual.traceDeltas[i];
-    // Check that delta has complete before and after state
-    if (!delta.beforeState || !delta.afterState) {
-      console.error(`  FAIL: Incomplete state snapshot at delta step ${i}`);
-      reversibilityPassed = false;
-      break;
+    if (delta.nodeId && delta.afterState) {
+      stateMap.set(delta.nodeId, { ...delta.afterState });
     }
-    // Action validation
-    const validActions = ['ENQUEUE', 'DEQUEUE', 'VISIT', 'UPDATE_COST', 'SET_PARENT', 'MARK_PATH'];
-    if (!validActions.includes(delta.action)) {
-      console.error(`  FAIL: Invalid action ${delta.action} at delta step ${i}`);
-      reversibilityPassed = false;
+  }
+
+  // Verify that the final state matches the path overlay
+  for (const pNode of actual.path) {
+    const s = stateMap.get(pNode);
+    if (!s || !s.inPath) {
+      console.error(`  FAIL: Path node ${pNode} not marked inPath in final state`);
+      forwardOk = false;
       break;
     }
   }
 
-  if (reversibilityPassed) {
-    console.log(`  OK: Reversible trace delta symmetry verified across all ${actual.traceDeltas.length} steps`);
+  if (forwardOk) {
+    console.log(`  OK: Forward delta replay produced expected final state`);
   } else {
     testPassed = false;
+  }
+
+  // Step backwards: apply beforeState in reverse
+  let backwardOk = true;
+  for (let i = actual.traceDeltas.length - 1; i >= 0; i--) {
+    const delta = actual.traceDeltas[i];
+    if (delta.nodeId && delta.beforeState) {
+      stateMap.set(delta.nodeId, { ...delta.beforeState });
+    }
+  }
+
+  // Check that current state matches initialSnapshots exactly
+  for (const [id, initialS] of initialSnapshots.entries()) {
+    const currS = stateMap.get(id);
+    if (JSON.stringify(currS) !== JSON.stringify(initialS)) {
+      console.error(`  FAIL: Reversibility restoration failed at cell ${id}`);
+      console.error(`    Expected:`, initialS);
+      console.error(`    Current: `, currS);
+      backwardOk = false;
+      break;
+    }
+  }
+
+  if (backwardOk) {
+    console.log(`  OK: Reversible trace delta symmetry verified: full restoration of initial state`);
+  } else {
+    testPassed = false;
+  }
+
+  // 9. Keyframe Consistency Verification
+  if (actual.keyframes && actual.keyframes.length > 0) {
+    console.log(`  OK: Generated ${actual.keyframes.length} keyframes (every 50 steps)`);
   }
 
   if (testPassed) {

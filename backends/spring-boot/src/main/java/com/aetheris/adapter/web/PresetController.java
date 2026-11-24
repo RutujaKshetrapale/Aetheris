@@ -1,6 +1,7 @@
 package com.aetheris.adapter.web;
 
 import com.aetheris.domain.model.GridPreset;
+import com.aetheris.domain.model.ProblemDetails;
 import com.aetheris.port.PresetRepositoryPort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -20,19 +21,66 @@ public class PresetController {
     }
 
     @GetMapping
-    public ResponseEntity<List<GridPreset>> listPresets() {
+    public ResponseEntity<?> listPresets() {
+        if (!presetRepository.isAvailable()) {
+            ProblemDetails problem = new ProblemDetails(
+                    "https://aetheris.dev/errors/service-unavailable",
+                    "Persistence Layer Unavailable",
+                    HttpStatus.SERVICE_UNAVAILABLE.value(),
+                    "The requested database adapter is currently offline or pending Phase 2 implementation.",
+                    "/api/v1/presets"
+            );
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .header("Content-Type", "application/problem+json")
+                    .body(problem);
+        }
         return ResponseEntity.ok(presetRepository.findAll());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<GridPreset> getPreset(@PathVariable String id) {
+    public ResponseEntity<?> getPreset(@PathVariable String id) {
+        if (!presetRepository.isAvailable()) {
+            ProblemDetails problem = new ProblemDetails(
+                    "https://aetheris.dev/errors/service-unavailable",
+                    "Persistence Layer Unavailable",
+                    HttpStatus.SERVICE_UNAVAILABLE.value(),
+                    "The requested database adapter is currently offline or pending Phase 2 implementation.",
+                    "/api/v1/presets/" + id
+            );
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .header("Content-Type", "application/problem+json")
+                    .body(problem);
+        }
         return presetRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> {
+                    ProblemDetails problem = new ProblemDetails(
+                            "https://aetheris.dev/errors/not-found",
+                            "Resource Not Found",
+                            HttpStatus.NOT_FOUND.value(),
+                            "Preset with ID " + id + " was not found.",
+                            "/api/v1/presets/" + id
+                    );
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .header("Content-Type", "application/problem+json")
+                            .body(problem);
+                });
     }
 
     @PostMapping
-    public ResponseEntity<GridPreset> savePreset(@RequestBody GridPreset preset) {
+    public ResponseEntity<?> savePreset(@RequestBody GridPreset preset) {
+        if (!presetRepository.isAvailable()) {
+            ProblemDetails problem = new ProblemDetails(
+                    "https://aetheris.dev/errors/service-unavailable",
+                    "Persistence Layer Unavailable",
+                    HttpStatus.SERVICE_UNAVAILABLE.value(),
+                    "The requested database adapter is currently offline or pending Phase 2 implementation.",
+                    "/api/v1/presets"
+            );
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .header("Content-Type", "application/problem+json")
+                    .body(problem);
+        }
         GridPreset saved = presetRepository.save(preset);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }

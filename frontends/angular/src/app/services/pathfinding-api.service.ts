@@ -15,7 +15,12 @@ export class PathfindingApiService {
     return this.http.get<HealthStatus>(`${this.baseUrl}/health`);
   }
 
+  tracePath(request: PathfindingRequest): Observable<PathfindingResponse> {
+    return this.http.post<PathfindingResponse>(`${this.baseUrl}/pathfinding/trace`, request);
+  }
+
+  // Alias for backward compatibility
   findPath(request: PathfindingRequest): Observable<PathfindingResponse> {
-    return this.http.post<PathfindingResponse>(`${this.baseUrl}/pathfinding/find`, request);
+    return this.tracePath(request);
   }
 }

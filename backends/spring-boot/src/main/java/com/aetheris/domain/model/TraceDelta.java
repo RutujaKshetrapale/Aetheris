@@ -1,32 +1,39 @@
 package com.aetheris.domain.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class TraceDelta {
     private int step;
-    private String nodeId;
     private TraceAction action;
+    private String nodeId;
     private CellState beforeState;
     private CellState afterState;
     private int frontierSize;
+    private List<HeapSwap> heapSwaps = new ArrayList<>();
+    private String details;
 
     public TraceDelta() {}
 
-    public TraceDelta(int step, String nodeId, TraceAction action, CellState beforeState, CellState afterState, int frontierSize) {
+    public TraceDelta(int step, TraceAction action, String nodeId, CellState beforeState, CellState afterState, int frontierSize, List<HeapSwap> heapSwaps, String details) {
         this.step = step;
-        this.nodeId = nodeId;
         this.action = action;
+        this.nodeId = nodeId;
         this.beforeState = beforeState;
         this.afterState = afterState;
         this.frontierSize = frontierSize;
+        this.heapSwaps = heapSwaps != null ? heapSwaps : new ArrayList<>();
+        this.details = details;
     }
 
     public int getStep() { return step; }
     public void setStep(int step) { this.step = step; }
 
-    public String getNodeId() { return nodeId; }
-    public void setNodeId(String nodeId) { this.nodeId = nodeId; }
-
     public TraceAction getAction() { return action; }
     public void setAction(TraceAction action) { this.action = action; }
+
+    public String getNodeId() { return nodeId; }
+    public void setNodeId(String nodeId) { this.nodeId = nodeId; }
 
     public CellState getBeforeState() { return beforeState; }
     public void setBeforeState(CellState beforeState) { this.beforeState = beforeState; }
@@ -36,4 +43,10 @@ public class TraceDelta {
 
     public int getFrontierSize() { return frontierSize; }
     public void setFrontierSize(int frontierSize) { this.frontierSize = frontierSize; }
+
+    public List<HeapSwap> getHeapSwaps() { return heapSwaps; }
+    public void setHeapSwaps(List<HeapSwap> heapSwaps) { this.heapSwaps = heapSwaps; }
+
+    public String getDetails() { return details; }
+    public void setDetails(String details) { this.details = details; }
 }

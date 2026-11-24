@@ -28,12 +28,12 @@ import { CellState, GridModel } from '../../models/contract.models';
       </div>
 
       <div class="flex flex-wrap items-center justify-center gap-4 mt-6 text-xs text-slate-300">
-        <div class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-emerald-500 border border-emerald-400"></div><span>Start (r0c0)</span></div>
-        <div class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-rose-500 border border-rose-400"></div><span>Target (r4c4)</span></div>
+        <div class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-emerald-500 border border-emerald-400"></div><span>Start ({{ grid.startNode }})</span></div>
+        <div class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-rose-500 border border-rose-400"></div><span>Target ({{ grid.targetNode }})</span></div>
         <div class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-slate-900 border border-slate-700"></div><span>Wall Barrier</span></div>
         <div class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-amber-600/40 border border-amber-500"></div><span>Weighted Cell</span></div>
         <div class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-sky-400 border border-sky-300"></div><span>Frontier</span></div>
-        <div class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-indigo-500/50 border border-indigo-400"></div><span>Visited</span></div>
+        <div class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-indigo-500/50 border border-indigo-400"></div><span>Closed</span></div>
         <div class="flex items-center gap-1.5"><div class="w-3.5 h-3.5 rounded bg-amber-400 border border-amber-200"></div><span>Optimal Path</span></div>
       </div>
     </div>
@@ -61,8 +61,9 @@ export class GridComponent {
     if (!state) return 'cell cell-empty';
 
     if (state.inPath) return 'cell state-in-path';
-    if (state.traversalState === 'IN_FRONTIER') return 'cell state-frontier';
-    if (state.traversalState === 'VISITED') return 'cell state-visited';
+    if (state.traversalState === 'ACTIVE') return 'cell state-active';
+    if (state.traversalState === 'FRONTIER') return 'cell state-frontier';
+    if (state.traversalState === 'CLOSED') return 'cell state-closed';
 
     switch (state.cellType) {
       case 'START': return 'cell cell-start';

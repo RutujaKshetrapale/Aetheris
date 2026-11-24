@@ -13,12 +13,12 @@ const CANONICAL_GRID: GridModel = {
   startNode: 'r0c0',
   targetNode: 'r4c4',
   cells: [
-    { id: 'r0c0', row: 0, col: 0, cellType: 'START', weight: 1.0 },
-    { id: 'r4c4', row: 4, col: 4, cellType: 'TARGET', weight: 1.0 },
-    { id: 'r1c2', row: 1, col: 2, cellType: 'WALL', weight: 1.0 },
-    { id: 'r2c2', row: 2, col: 2, cellType: 'WALL', weight: 1.0 },
-    { id: 'r3c2', row: 3, col: 2, cellType: 'WALL', weight: 1.0 },
-    { id: 'r0c2', row: 0, col: 2, cellType: 'WEIGHTED', weight: 5.0 }
+    { id: 'r0c0', row: 0, col: 0, cellType: 'START', weight: 1 },
+    { id: 'r4c4', row: 4, col: 4, cellType: 'TARGET', weight: 1 },
+    { id: 'r1c2', row: 1, col: 2, cellType: 'WALL', weight: 1 },
+    { id: 'r2c2', row: 2, col: 2, cellType: 'WALL', weight: 1 },
+    { id: 'r3c2', row: 3, col: 2, cellType: 'WALL', weight: 1 },
+    { id: 'r0c2', row: 0, col: 2, cellType: 'WEIGHTED', weight: 5 }
   ]
 };
 
@@ -64,79 +64,80 @@ const CANONICAL_GRID: GridModel = {
             <div class="flex items-center gap-2">
               <button
                 (click)="onExecute()"
-                [disabled]="loading"
-                class="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-50"
+                [disabled]="isLoading"
+                class="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-lg shadow-md transition-all active:scale-95 disabled:opacity-50"
               >
-                {{ loading ? 'Computing...' : 'Run Algorithm' }}
+                {{ isLoading ? 'Computing...' : 'Run Algorithm' }}
               </button>
               <button
                 (click)="onReset()"
-                class="px-3 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-all"
+                class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-all"
               >
                 Reset
               </button>
             </div>
 
-            <!-- Reversible playback bar -->
             <div class="flex items-center gap-2 bg-slate-950/80 px-3 py-1.5 rounded-lg border border-slate-800">
-              <button (click)="tracePlayer.stepBackward()" [disabled]="currentStep < 0" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs disabled:opacity-30">◀ Prev</button>
-              <button (click)="tracePlayer.togglePlay()" [disabled]="totalSteps === 0 || currentStep >= totalSteps - 1" class="px-2.5 py-1 bg-amber-500 text-slate-950 font-bold rounded text-xs disabled:opacity-30">
-                {{ isPlaying ? 'Pause' : 'Play' }}
+              <button (click)="tracePlayer.stepBackward()" class="px-2 py-1 hover:bg-slate-800 text-slate-300 rounded text-xs">Step Back</button>
+              <button (click)="tracePlayer.togglePlay()" class="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded font-bold text-xs">
+                {{ (tracePlayer.isPlaying$ | async) ? 'Pause' : 'Play' }}
               </button>
-              <button (click)="tracePlayer.stepForward()" [disabled]="totalSteps === 0 || currentStep >= totalSteps - 1" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 rounded text-xs disabled:opacity-30">Next ▶</button>
-              <span class="text-xs font-mono text-slate-400 px-2">{{ currentStep + 1 }} / {{ totalSteps }}</span>
+              <button (click)="tracePlayer.stepForward()" class="px-2 py-1 hover:bg-slate-800 text-slate-300 rounded text-xs">Step Forward</button>
             </div>
           </div>
         </div>
 
-        <!-- Grid Canvas -->
-        <app-grid [grid]="grid" [cellStates]="cellStates"></app-grid>
-
-        <!-- Metrics -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 p-4 bg-slate-900/60 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
+        <!-- Metrics Panel -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 p-4 bg-slate-900/60 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
           <div class="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
             <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Algorithm</span>
             <span class="text-sm font-serif font-bold text-amber-400 mt-1">{{ selectedAlgorithm }}</span>
           </div>
           <div class="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
             <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Status</span>
-            <span class="text-sm font-mono font-bold mt-1" [class.text-emerald-400]="response?.pathFound">{{ response?.pathFound ? 'PATH FOUND' : 'READY' }}</span>
+            <span class="text-sm font-mono font-bold mt-1 text-emerald-400">
+              {{ lastResponse?.pathFound ? 'PATH FOUND' : (lastResponse ? 'NO PATH' : 'READY') }}
+            </span>
           </div>
           <div class="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
-            <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Path Cost</span>
-            <span class="text-sm font-mono font-bold text-slate-100 mt-1">{{ response?.pathCost ? response!.pathCost.toFixed(1) : '—' }}</span>
+            <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Path Nodes</span>
+            <span class="text-sm font-mono font-bold text-slate-100 mt-1">{{ lastResponse?.pathNodeCount ?? '—' }}</span>
           </div>
           <div class="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
-            <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Visited Nodes</span>
-            <span class="text-sm font-mono font-bold text-indigo-400 mt-1">{{ response?.metrics?.nodesVisited ?? '—' }}</span>
+            <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Path Edges</span>
+            <span class="text-sm font-mono font-bold text-slate-100 mt-1">{{ lastResponse?.pathEdgeCount ?? '—' }}</span>
           </div>
           <div class="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
-            <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Max Frontier</span>
-            <span class="text-sm font-mono font-bold text-sky-400 mt-1">{{ response?.metrics?.maxFrontierSize ?? '—' }}</span>
+            <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Algo Cost</span>
+            <span class="text-sm font-mono font-bold text-amber-300 mt-1">{{ lastResponse?.algorithmPathCost ?? '—' }}</span>
+          </div>
+          <div class="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Terrain Cost</span>
+            <span class="text-sm font-mono font-bold text-amber-400 mt-1">{{ lastResponse?.terrainPathCost ?? '—' }}</span>
+          </div>
+          <div class="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+            <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Visited</span>
+            <span class="text-sm font-mono font-bold text-indigo-400 mt-1">{{ lastResponse?.metrics?.nodesVisited ?? '—' }}</span>
           </div>
           <div class="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
             <span class="text-[10px] uppercase font-mono tracking-wider text-slate-400">Trace Step</span>
-            <span class="text-sm font-mono font-bold text-amber-300 mt-1">{{ currentStep >= 0 ? (currentStep + 1) + ' / ' + totalSteps : '0 / 0' }}</span>
+            <span class="text-sm font-mono font-bold text-sky-400 mt-1">
+              {{ (tracePlayer.currentStep$ | async)! >= 0 ? ((tracePlayer.currentStep$ | async)! + 1) + ' / ' + (tracePlayer.totalSteps$ | async) : '0 / 0' }}
+            </span>
           </div>
         </div>
-      </main>
 
-      <footer class="mt-12 text-center text-xs text-slate-500 font-mono">
-        AETHERIS Revision 2.1.0 • 8-Configuration Cross-Platform Symmetry
-      </footer>
+        <app-grid [grid]="canonicalGrid" [cellStates]="(tracePlayer.cellStates$ | async)!"></app-grid>
+      </main>
     </div>
   `
 })
 export class AppComponent implements OnInit, OnDestroy {
-  grid: GridModel = CANONICAL_GRID;
-  cellStates = new Map();
+  canonicalGrid = CANONICAL_GRID;
   selectedAlgorithm: AlgorithmType = 'DIJKSTRA';
-  response: PathfindingResponse | null = null;
+  lastResponse: PathfindingResponse | null = null;
   health: HealthStatus | null = null;
-  loading = false;
-  currentStep = -1;
-  totalSteps = 0;
-  isPlaying = false;
+  isLoading = false;
 
   algos: { type: AlgorithmType; label: string; desc: string }[] = [
     { type: 'BFS', label: 'BFS', desc: 'FIFO Queue • Unweighted Shortest' },
@@ -145,51 +146,41 @@ export class AppComponent implements OnInit, OnDestroy {
     { type: 'ASTAR', label: 'A*', desc: 'Heuristic Min-Heap • Directed Optimal' }
   ];
 
-  private subs: Subscription[] = [];
-
   constructor(
-    private api: PathfindingApiService,
-    public tracePlayer: TracePlayerService
+    public tracePlayer: TracePlayerService,
+    private api: PathfindingApiService
   ) {}
 
   ngOnInit(): void {
-    this.tracePlayer.initGrid(this.grid);
-    this.subs.push(
-      this.tracePlayer.cellStates$.subscribe(cs => this.cellStates = cs),
-      this.tracePlayer.currentStep$.subscribe(st => this.currentStep = st),
-      this.tracePlayer.totalSteps$.subscribe(ts => this.totalSteps = ts),
-      this.tracePlayer.isPlaying$.subscribe(p => this.isPlaying = p)
-    );
+    this.tracePlayer.initGrid(this.canonicalGrid);
     this.api.getHealth().subscribe({
-      next: h => this.health = h,
-      error: () => {}
+      next: (h) => (this.health = h),
+      error: () => console.warn('Backend not currently reachable')
     });
   }
 
+  ngOnDestroy(): void {
+    this.tracePlayer.stop();
+  }
+
   onExecute(): void {
-    this.loading = true;
-    this.api.findPath({
-      algorithm: this.selectedAlgorithm,
-      grid: this.grid
-    }).subscribe({
-      next: res => {
-        this.response = res;
-        this.tracePlayer.loadTrace(res.traceDeltas);
+    this.isLoading = true;
+    this.api.tracePath({ algorithm: this.selectedAlgorithm, grid: this.canonicalGrid }).subscribe({
+      next: (res) => {
+        this.isLoading = false;
+        this.lastResponse = res;
+        this.tracePlayer.loadTrace(res.traceDeltas, res.keyframes || []);
         this.tracePlayer.start();
-        this.loading = false;
       },
-      error: () => {
-        this.loading = false;
+      error: (err) => {
+        this.isLoading = false;
+        console.error('Execution failed:', err);
       }
     });
   }
 
   onReset(): void {
-    this.tracePlayer.initGrid(this.grid);
-    this.response = null;
-  }
-
-  ngOnDestroy(): void {
-    this.subs.forEach(s => s.unsubscribe());
+    this.tracePlayer.initGrid(this.canonicalGrid);
+    this.lastResponse = null;
   }
 }

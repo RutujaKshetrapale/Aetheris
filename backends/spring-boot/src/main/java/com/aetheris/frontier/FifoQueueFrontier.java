@@ -1,9 +1,6 @@
 package com.aetheris.frontier;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class FifoQueueFrontier implements ReversibleFrontier<String> {
     private final Deque<String> queue = new ArrayDeque<>();
@@ -43,5 +40,10 @@ public class FifoQueueFrontier implements ReversibleFrontier<String> {
     public void clear() {
         queue.clear();
         inQueue.clear();
+    }
+
+    @Override
+    public List<String> getFrontierIds() {
+        return new ArrayList<>(queue);
     }
 }

@@ -1,6 +1,7 @@
 package com.aetheris.adapter.web;
 
 import com.aetheris.domain.model.HealthStatus;
+import com.aetheris.domain.model.ProbeStatus;
 import com.aetheris.port.PresetRepositoryPort;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
@@ -29,13 +30,27 @@ public class HealthController {
     @GetMapping
     public ResponseEntity<HealthStatus> getHealth() {
         boolean dbConnected = presetRepository.isAvailable();
+        String persistenceStatus = dbConnected ? "UP" : "PENDING";
         HealthStatus status = new HealthStatus(
                 "UP",
+                "UP",
+                persistenceStatus,
                 "Spring Boot 3.2.5 (Java 21)",
                 version,
                 persistenceEngine.toUpperCase(),
                 dbConnected
         );
         return ResponseEntity.ok(status);
+    }
+
+    @GetMapping("/live")
+    public ResponseEntity<ProbeStatus> getLiveness() {
+        return ResponseEntity.ok(new ProbeStatus("UP"));
+    }
+
+    @GetMapping("/ready")
+    public ResponseEntity<ProbeStatus> getReadiness() {
+        // Core pathfinding engine is in-memory and always ready even if DB is offline
+        return ResponseEntity.ok(new ProbeStatus("UP"));
     }
 }

@@ -6,19 +6,19 @@ import { GridCanvas } from './components/GridCanvas';
 import { AlgorithmControls } from './components/AlgorithmControls';
 import { MetricsPanel } from './components/MetricsPanel';
 
-// Benchmark Canonical 5x5 Grid
+// Canonical 5x5 Benchmark Grid with integer weights
 const CANONICAL_GRID: GridModel = {
   rows: 5,
   cols: 5,
   startNode: 'r0c0',
   targetNode: 'r4c4',
   cells: [
-    { id: 'r0c0', row: 0, col: 0, cellType: 'START', weight: 1.0 },
-    { id: 'r4c4', row: 4, col: 4, cellType: 'TARGET', weight: 1.0 },
-    { id: 'r1c2', row: 1, col: 2, cellType: 'WALL', weight: 1.0 },
-    { id: 'r2c2', row: 2, col: 2, cellType: 'WALL', weight: 1.0 },
-    { id: 'r3c2', row: 3, col: 2, cellType: 'WALL', weight: 1.0 },
-    { id: 'r0c2', row: 0, col: 2, cellType: 'WEIGHTED', weight: 5.0 }
+    { id: 'r0c0', row: 0, col: 0, cellType: 'START', weight: 1 },
+    { id: 'r4c4', row: 4, col: 4, cellType: 'TARGET', weight: 1 },
+    { id: 'r1c2', row: 1, col: 2, cellType: 'WALL', weight: 1 },
+    { id: 'r2c2', row: 2, col: 2, cellType: 'WALL', weight: 1 },
+    { id: 'r3c2', row: 3, col: 2, cellType: 'WALL', weight: 1 },
+    { id: 'r0c2', row: 0, col: 2, cellType: 'WEIGHTED', weight: 5 }
   ]
 };
 
@@ -54,12 +54,12 @@ export const App: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await AetherisApiClient.findPath({
+      const res = await AetherisApiClient.tracePath({
         algorithm: selectedAlgorithm,
         grid: CANONICAL_GRID
       });
       setLastResponse(res);
-      loadTrace(res.traceDeltas);
+      loadTrace(res.traceDeltas, res.keyframes || []);
       // Auto play forward
       togglePlay();
     } catch (err: any) {
@@ -99,14 +99,6 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="max-w-4xl w-full flex flex-col gap-6">
-        {/* Error Banner */}
-        {error && (
-          <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-xs text-rose-300 font-mono">
-            {error}
-          </div>
-        )}
-
-        {/* Algorithm Controls */}
         <AlgorithmControls
           selectedAlgorithm={selectedAlgorithm}
           onSelectAlgorithm={setSelectedAlgorithm}
@@ -123,22 +115,26 @@ export const App: React.FC = () => {
           isLoading={loading}
         />
 
-        {/* Grid Visualization Canvas */}
-        <GridCanvas grid={grid} cellStates={cellStates} />
+        {error && (
+          <div className="p-4 bg-rose-950/60 border border-rose-800 rounded-xl text-rose-300 text-xs font-mono">
+            Error: {error}
+          </div>
+        )}
 
-        {/* Execution Metrics Panel */}
         <MetricsPanel
           metrics={lastResponse?.metrics ?? null}
-          algorithm={selectedAlgorithm}
+          algorithm={lastResponse?.algorithm ?? selectedAlgorithm}
           pathFound={lastResponse?.pathFound ?? false}
           currentStep={currentStep}
           totalSteps={totalSteps}
         />
+
+        <GridCanvas grid={grid} cellStates={cellStates} />
       </main>
 
       {/* Footer */}
-      <footer className="mt-12 text-center text-xs text-slate-500 font-mono">
-        AETHERIS Revision 2.1.0 • 8-Configuration Cross-Platform Symmetry
+      <footer className="mt-12 text-center text-xs text-slate-600 font-mono">
+        AETHERIS Revision 2.1.0 • Deterministic Cross-Platform Architecture
       </footer>
     </div>
   );

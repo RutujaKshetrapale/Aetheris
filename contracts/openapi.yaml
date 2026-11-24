@@ -1,4 +1,4 @@
-openapi: 3.1.0
+openapi: 3.2.0
 info:
   title: AETHERIS Pathfinding & Algorithmic Exploration API
   description: Canonical contract for the AETHERIS cross-platform deterministic pathfinding engine. Revision 2.1.0.
@@ -14,17 +14,51 @@ servers:
 paths:
   /api/v1/health:
     get:
-      summary: Health & Runtime Status
+      summary: Overall System Health Status
       operationId: getHealth
       tags:
-        - System
+        - Health
       responses:
         '200':
-          description: Service is healthy
+          description: Overall system health status
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthStatus'
+
+  /api/v1/health/live:
+    get:
+      summary: Liveness Probe
+      operationId: getLiveness
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProbeStatus'
+
+  /api/v1/health/ready:
+    get:
+      summary: Readiness Probe
+      operationId: getReadiness
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Core pathfinding engine is ready to serve requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProbeStatus'
+        '503':
+          description: Core pathfinding engine is not ready
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/pathfinding/algorithms:
     get:
@@ -42,10 +76,10 @@ paths:
                 items:
                   $ref: '#/components/schemas/AlgorithmInfo'
 
-  /api/v1/pathfinding/find:
+  /api/v1/pathfinding/trace:
     post:
-      summary: Execute Deterministic Pathfinding
-      operationId: findPath
+      summary: Execute Deterministic Pathfinding and Generate Reversible Trace
+      operationId: tracePath
       tags:
         - Pathfinding
       requestBody:
@@ -56,7 +90,7 @@ paths:
               $ref: '#/components/schemas/PathfindingRequest'
       responses:
         '200':
-          description: Deterministic pathfinding execution result with reversible trace deltas
+          description: Deterministic pathfinding execution result with reversible trace deltas and keyframes
           content:
             application/json:
               schema:
@@ -64,9 +98,9 @@ paths:
         '400':
           description: Invalid request parameters or malformed grid
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/presets:
     get:
@@ -83,6 +117,12 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/GridPreset'
+        '503':
+          description: Persistence layer unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
     post:
       summary: Save Grid Preset
       operationId: savePreset
@@ -101,6 +141,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GridPreset'
+        '400':
+          description: Malformed preset
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Persistence layer unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 
   /api/v1/presets/{id}:
     get:
@@ -116,7 +168,7 @@ paths:
             type: string
       responses:
         '200':
-          description: Grid preset
+          description: Grid preset found
           content:
             application/json:
               schema:
@@ -124,9 +176,15 @@ paths:
         '404':
           description: Preset not found
           content:
-            application/json:
+            application/problem+json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Persistence layer unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
 
 components:
   schemas:
@@ -143,56 +201,35 @@ components:
       enum:
         - EMPTY
         - WALL
+        - WEIGHTED
         - START
         - TARGET
-        - WEIGHTED
 
     TraversalState:
       type: string
       enum:
         - UNVISITED
-        - IN_FRONTIER
-        - VISITED
+        - FRONTIER
+        - ACTIVE
+        - CLOSED
 
     TraceAction:
       type: string
       enum:
-        - ENQUEUE
-        - DEQUEUE
-        - VISIT
-        - UPDATE_COST
-        - SET_PARENT
-        - MARK_PATH
+        - INITIALIZE
+        - ENQUEUE_FRONTIER
+        - DEQUEUE_FRONTIER
+        - EXAMINE_NODE
+        - UPDATE_METRICS
+        - CLOSE_NODE
+        - DECREASE_KEY
+        - PATH_FOUND
+        - NO_PATH_FOUND
 
     HeuristicType:
       type: string
       enum:
         - MANHATTAN
-        - EUCLIDEAN
-        - CHEBYSHEV
-
-    CellState:
-      type: object
-      required:
-        - cellType
-        - traversalState
-        - inPath
-      properties:
-        cellType:
-          $ref: '#/components/schemas/CellType'
-        traversalState:
-          $ref: '#/components/schemas/TraversalState'
-        inPath:
-          type: boolean
-        gCost:
-          type: number
-          format: double
-        fCost:
-          type: number
-          format: double
-        parentId:
-          type: string
-          nullable: true
 
     CellDefinition:
       type: object
@@ -215,10 +252,37 @@ components:
         cellType:
           $ref: '#/components/schemas/CellType'
         weight:
-          type: number
-          format: double
-          minimum: 1.0
-          default: 1.0
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 1
+          description: Entry cost into destination cell. EMPTY is 1, WEIGHTED is 2-100, START is 0.
+
+    CellState:
+      type: object
+      required:
+        - cellType
+        - traversalState
+        - inPath
+      properties:
+        cellType:
+          $ref: '#/components/schemas/CellType'
+        traversalState:
+          $ref: '#/components/schemas/TraversalState'
+        inPath:
+          type: boolean
+        gCost:
+          type: integer
+          nullable: true
+        hCost:
+          type: integer
+          nullable: true
+        fCost:
+          type: integer
+          nullable: true
+        parentId:
+          type: string
+          nullable: true
 
     GridModel:
       type: object
@@ -230,11 +294,11 @@ components:
       properties:
         rows:
           type: integer
-          minimum: 2
+          minimum: 1
           maximum: 200
         cols:
           type: integer
-          minimum: 2
+          minimum: 1
           maximum: 200
         startNode:
           type: string
@@ -249,43 +313,118 @@ components:
           items:
             $ref: '#/components/schemas/CellDefinition'
 
+    HeapSwap:
+      type: object
+      required:
+        - indexA
+        - indexB
+        - nodeA
+        - nodeB
+      properties:
+        indexA:
+          type: integer
+          minimum: 0
+        indexB:
+          type: integer
+          minimum: 0
+        nodeA:
+          type: string
+        nodeB:
+          type: string
+
     TraceDelta:
       type: object
       required:
         - step
-        - nodeId
         - action
-        - beforeState
-        - afterState
       properties:
         step:
           type: integer
           minimum: 0
-        nodeId:
-          type: string
-          pattern: '^r\\d+c\\d+$'
         action:
           $ref: '#/components/schemas/TraceAction'
+        nodeId:
+          type: string
+          nullable: true
+          pattern: '^r\\d+c\\d+$'
         beforeState:
-          $ref: '#/components/schemas/CellState'
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/CellState'
         afterState:
-          $ref: '#/components/schemas/CellState'
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/CellState'
         frontierSize:
+          type: integer
+          minimum: 0
+        heapSwaps:
+          type: array
+          items:
+            $ref: '#/components/schemas/HeapSwap'
+          description: Exact physical heap swaps to ensure bit-level array reversibility
+        details:
+          type: string
+          nullable: true
+
+    Keyframe:
+      type: object
+      required:
+        - step
+        - cellStates
+        - frontier
+        - closedCount
+      properties:
+        step:
+          type: integer
+          minimum: 0
+        cellStates:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CellState'
+        frontier:
+          type: array
+          items:
+            type: string
+        activeNode:
+          type: string
+          nullable: true
+        closedCount:
           type: integer
           minimum: 0
 
     ExecutionMetrics:
       type: object
       required:
+        - pathNodeCount
+        - pathEdgeCount
+        - algorithmPathCost
+        - terrainPathCost
         - nodesVisited
         - maxFrontierSize
         - executionTimeMs
-        - pathLength
-        - pathCost
+        - totalSteps
       properties:
+        pathNodeCount:
+          type: integer
+          minimum: 0
+          description: Total nodes in path (1 if start==target, 0 if no path)
+        pathEdgeCount:
+          type: integer
+          minimum: 0
+          description: Total edges in path (0 if start==target or no path)
+        algorithmPathCost:
+          type: integer
+          nullable: true
+          description: BFS/DFS edge count; Dijkstra/A* weighted entry cost (null if no path)
+        terrainPathCost:
+          type: integer
+          nullable: true
+          description: Cumulative destination terrain entry cost excluding START (null if no path)
         nodesVisited:
           type: integer
           minimum: 0
+          description: Unique nodes removed from frontier and examined
         maxFrontierSize:
           type: integer
           minimum: 0
@@ -293,13 +432,9 @@ components:
           type: number
           format: double
           minimum: 0.0
-        pathLength:
+        totalSteps:
           type: integer
           minimum: 0
-        pathCost:
-          type: number
-          format: double
-          minimum: 0.0
 
     PathfindingRequest:
       type: object
@@ -314,9 +449,6 @@ components:
         heuristic:
           $ref: '#/components/schemas/HeuristicType'
           default: MANHATTAN
-        allowDiagonals:
-          type: boolean
-          default: false
 
     PathfindingResponse:
       type: object
@@ -324,8 +456,12 @@ components:
         - algorithm
         - pathFound
         - path
-        - pathCost
+        - pathNodeCount
+        - pathEdgeCount
+        - algorithmPathCost
+        - terrainPathCost
         - traceDeltas
+        - keyframes
         - metrics
         - reversible
       properties:
@@ -338,18 +474,36 @@ components:
           items:
             type: string
             pattern: '^r\\d+c\\d+$'
-        pathCost:
-          type: number
-          format: double
+        pathNodeCount:
+          type: integer
+          minimum: 0
+        pathEdgeCount:
+          type: integer
+          minimum: 0
+        algorithmPathCost:
+          type: integer
+          nullable: true
+        terrainPathCost:
+          type: integer
+          nullable: true
         traceDeltas:
           type: array
           items:
             $ref: '#/components/schemas/TraceDelta'
+        keyframes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Keyframe'
         metrics:
           $ref: '#/components/schemas/ExecutionMetrics'
         reversible:
           type: boolean
           default: true
+        noPathReason:
+          type: string
+          nullable: true
+          enum:
+            - FRONTIER_EXHAUSTED
 
     AlgorithmInfo:
       type: object
@@ -414,6 +568,8 @@ components:
       type: object
       required:
         - status
+        - engineStatus
+        - persistenceStatus
         - platform
         - version
         - persistenceEngine
@@ -422,9 +578,15 @@ components:
         status:
           type: string
           example: 'UP'
+        engineStatus:
+          type: string
+          example: 'UP'
+        persistenceStatus:
+          type: string
+          example: 'UP'
         platform:
           type: string
-          example: 'Spring Boot 3.4.3 (Java 21)'
+          example: 'Spring Boot (Java 21)'
         version:
           type: string
           example: '2.1.0'
@@ -437,22 +599,35 @@ components:
         databaseConnected:
           type: boolean
 
-    ErrorResponse:
+    ProbeStatus:
       type: object
       required:
-        - timestamp
         - status
-        - error
-        - message
       properties:
-        timestamp:
+        status:
           type: string
-          format: date-time
+          example: 'UP'
+
+    ProblemDetails:
+      type: object
+      required:
+        - status
+        - title
+      properties:
+        type:
+          type: string
+          format: uri
+          example: 'https://aetheris.dev/errors/not-found'
+        title:
+          type: string
+          example: 'Resource Not Found'
         status:
           type: integer
-        error:
+          example: 404
+        detail:
           type: string
-        message:
+          example: 'The requested preset was not found.'
+        instance:
           type: string
-        path:
-          type: string
+          format: uri
+          example: '/api/v1/presets/preset-123'

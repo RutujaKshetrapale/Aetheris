@@ -7,6 +7,8 @@ import com.aetheris.frontier.LifoStackFrontier;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @Service
 public class PathfindingEngine {
@@ -16,6 +18,13 @@ public class PathfindingEngine {
             Direction.RIGHT,
             Direction.DOWN,
             Direction.LEFT
+    };
+
+    private static final Direction[] REVERSE_DIRECTIONS = {
+            Direction.LEFT,
+            Direction.DOWN,
+            Direction.RIGHT,
+            Direction.UP
     };
 
     public PathfindingResponse execute(PathfindingRequest request) {
@@ -28,17 +37,14 @@ public class PathfindingEngine {
         String startNode = grid.getStartNode();
         String targetNode = grid.getTargetNode();
 
-        int[] startPos = NodeIdUtil.parse(startNode);
-        int[] targetPos = NodeIdUtil.parse(targetNode);
-
         Map<String, CellType> cellTypeMap = new HashMap<>();
-        Map<String, Double> weightMap = new HashMap<>();
+        Map<String, Integer> weightMap = new HashMap<>();
 
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
                 String id = NodeIdUtil.format(r, c);
                 cellTypeMap.put(id, CellType.EMPTY);
-                weightMap.put(id, 1.0);
+                weightMap.put(id, 1);
             }
         }
 
@@ -49,259 +55,388 @@ public class PathfindingEngine {
             }
         }
 
-        cellTypeMap.put(startNode, CellType.START);
         cellTypeMap.put(targetNode, CellType.TARGET);
+        cellTypeMap.put(startNode, CellType.START);
+        weightMap.put(startNode, 0); // START contributes zero entry cost
 
         Map<String, CellState> stateMap = new HashMap<>();
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
                 String id = NodeIdUtil.format(r, c);
-                stateMap.put(id, new CellState(cellTypeMap.get(id), TraversalState.UNVISITED, false, null, null, null));
+                stateMap.put(id, new CellState(cellTypeMap.get(id), TraversalState.UNVISITED, false, null, null, null, null));
             }
         }
 
         List<TraceDelta> traceDeltas = new ArrayList<>();
+        List<Keyframe> keyframes = new ArrayList<>();
         int[] stepCounter = new int[]{0};
+        int maxFrontierSize = 0;
+        int visitedCount = 0;
+        Set<String> closedSet = new HashSet<>();
+        String[] activeNodeRef = new String[]{null};
+        Supplier<List<String>>[] frontierSupplier = new Supplier[]{() -> Collections.emptyList()};
 
-        java.util.function.BiConsumer<String, TraceAction> recordSimpleDelta = (nodeId, action) -> {
-            CellState before = stateMap.get(nodeId).copy();
-            CellState after = before.copy();
-            traceDeltas.add(new TraceDelta(stepCounter[0]++, nodeId, action, before, after, 0));
+        Consumer<Integer> captureKeyframe = (frontierSize) -> {
+            int stepNum = stepCounter[0] - 1;
+            Map<String, CellState> snapshot = new HashMap<>();
+            for (Map.Entry<String, CellState> entry : stateMap.entrySet()) {
+                snapshot.put(entry.getKey(), entry.getValue().copy());
+            }
+            keyframes.add(new Keyframe(
+                    stepNum,
+                    snapshot,
+                    new ArrayList<>(frontierSupplier[0].get()),
+                    activeNodeRef[0],
+                    closedSet.size()
+            ));
+        };
+
+        // Delta recorder
+        java.util.function.Function<DeltaParams, TraceDelta> recordDelta = (params) -> {
+            CellState before = null;
+            CellState after = null;
+
+            if (params.nodeId != null && stateMap.containsKey(params.nodeId)) {
+                before = stateMap.get(params.nodeId).copy();
+                after = before.copy();
+                if (params.traversalState != null) after.setTraversalState(params.traversalState);
+                if (params.inPath != null) after.setInPath(params.inPath);
+                if (params.gCost != null) after.setGCost(params.gCost);
+                if (params.hCost != null) after.setHCost(params.hCost);
+                if (params.fCost != null) after.setFCost(params.fCost);
+                if (params.parentIdSet) after.setParentId(params.parentId);
+
+                stateMap.put(params.nodeId, after);
+            }
+
+            TraceDelta delta = new TraceDelta(
+                    stepCounter[0]++,
+                    params.action,
+                    params.nodeId,
+                    before,
+                    after,
+                    params.frontierSize,
+                    params.heapSwaps,
+                    params.details
+            );
+            traceDeltas.add(delta);
+
+            if (delta.getStep() % 50 == 0) {
+                captureKeyframe.accept(params.frontierSize);
+            }
+
+            return delta;
         };
 
         boolean pathFound = false;
         List<String> path = new ArrayList<>();
-        double pathCost = 0.0;
-        int maxFrontierSize = 0;
+        int pathNodeCount = 0;
+        int pathEdgeCount = 0;
+        Integer algorithmPathCost = null;
+        Integer terrainPathCost = null;
 
+        // Special Case: Start equals target
+        if (startNode.equals(targetNode)) {
+            // Step 0: INITIALIZE
+            DeltaParams p0 = new DeltaParams(TraceAction.INITIALIZE, startNode, 0);
+            p0.traversalState = TraversalState.ACTIVE;
+            p0.gCost = 0;
+            p0.hCost = 0;
+            p0.fCost = 0;
+            p0.parentId = null;
+            p0.parentIdSet = true;
+            p0.details = "Start equals target initialization";
+            recordDelta.apply(p0);
+
+            // Step 1: PATH_FOUND
+            DeltaParams p1 = new DeltaParams(TraceAction.PATH_FOUND, startNode, 0);
+            p1.inPath = true;
+            p1.traversalState = TraversalState.CLOSED;
+            p1.details = "Target is start node";
+            recordDelta.apply(p1);
+
+            path = List.of(startNode);
+            pathNodeCount = 1;
+            pathEdgeCount = 0;
+            algorithmPathCost = 0;
+            terrainPathCost = 0;
+            visitedCount = 1;
+
+            double executionTimeMs = Math.max(0.01, (double) (System.currentTimeMillis() - startTime));
+            ExecutionMetrics metrics = new ExecutionMetrics(
+                    1, 0, 0, 0, 1, 0, executionTimeMs, traceDeltas.size()
+            );
+
+            PathfindingResponse resp = new PathfindingResponse();
+            resp.setAlgorithm(algorithm);
+            resp.setPathFound(true);
+            resp.setPath(path);
+            resp.setPathNodeCount(1);
+            resp.setPathEdgeCount(0);
+            resp.setAlgorithmPathCost(0);
+            resp.setTerrainPathCost(0);
+            resp.setTraceDeltas(traceDeltas);
+            resp.setKeyframes(keyframes);
+            resp.setMetrics(metrics);
+            resp.setReversible(true);
+            resp.setNoPathReason(null);
+            return resp;
+        }
+
+        // Normal Execution
         if (algorithm == AlgorithmType.BFS) {
-            FifoQueueFrontier frontier = new FifoQueueFrontier();
+            FifoQueueFrontier queue = new FifoQueueFrontier();
+            frontierSupplier[0] = queue::getFrontierIds;
 
-            // Initial delta: ENQUEUE start
-            CellState beforeStart = stateMap.get(startNode).copy();
-            CellState afterStart = beforeStart.copy();
-            afterStart.setTraversalState(TraversalState.IN_FRONTIER);
-            afterStart.setGCost(0.0);
-            afterStart.setFCost(0.0);
-            stateMap.put(startNode, afterStart);
+            // INITIALIZE start
+            DeltaParams initP = new DeltaParams(TraceAction.INITIALIZE, startNode, 1);
+            initP.traversalState = TraversalState.FRONTIER;
+            initP.gCost = 0;
+            initP.hCost = 0;
+            initP.fCost = 0;
+            initP.parentId = null;
+            initP.parentIdSet = true;
+            initP.details = "Initialize start node in BFS queue";
+            recordDelta.apply(initP);
 
-            frontier.push(startNode);
-            maxFrontierSize = Math.max(maxFrontierSize, frontier.size());
-            traceDeltas.add(new TraceDelta(stepCounter[0]++, startNode, TraceAction.ENQUEUE, beforeStart, afterStart.copy(), frontier.size()));
+            queue.push(startNode);
+            maxFrontierSize = Math.max(maxFrontierSize, queue.size());
 
-            while (!frontier.isEmpty()) {
-                maxFrontierSize = Math.max(maxFrontierSize, frontier.size());
-                String currId = frontier.pop();
+            while (!queue.isEmpty()) {
+                maxFrontierSize = Math.max(maxFrontierSize, queue.size());
+                String currId = queue.pop();
 
-                // DEQUEUE delta
-                CellState bDeq = stateMap.get(currId).copy();
-                traceDeltas.add(new TraceDelta(stepCounter[0]++, currId, TraceAction.DEQUEUE, bDeq, bDeq.copy(), frontier.size()));
+                DeltaParams deqP = new DeltaParams(TraceAction.DEQUEUE_FRONTIER, currId, queue.size());
+                recordDelta.apply(deqP);
 
-                // VISIT delta
-                CellState bVis = stateMap.get(currId).copy();
-                CellState aVis = bVis.copy();
-                aVis.setTraversalState(TraversalState.VISITED);
-                stateMap.put(currId, aVis);
-                traceDeltas.add(new TraceDelta(stepCounter[0]++, currId, TraceAction.VISIT, bVis, aVis.copy(), frontier.size()));
+                activeNodeRef[0] = currId;
+                DeltaParams examP = new DeltaParams(TraceAction.EXAMINE_NODE, currId, queue.size());
+                examP.traversalState = TraversalState.ACTIVE;
+                recordDelta.apply(examP);
+                visitedCount++;
 
                 if (currId.equals(targetNode)) {
                     pathFound = true;
+                    closedSet.add(currId);
+                    DeltaParams closeP = new DeltaParams(TraceAction.CLOSE_NODE, currId, queue.size());
+                    closeP.traversalState = TraversalState.CLOSED;
+                    recordDelta.apply(closeP);
+                    activeNodeRef[0] = null;
                     break;
                 }
 
                 int[] currPos = NodeIdUtil.parse(currId);
-                CellState currState = stateMap.get(currId);
+                int currGCost = stateMap.get(currId).getGCost();
 
                 for (Direction dir : DIRECTIONS) {
                     int nr = currPos[0] + dir.dr;
                     int nc = currPos[1] + dir.dc;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
 
-                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-                        String neighborId = NodeIdUtil.format(nr, nc);
-                        CellType nType = cellTypeMap.get(neighborId);
-                        CellState nState = stateMap.get(neighborId);
+                    String nId = NodeIdUtil.format(nr, nc);
+                    if (cellTypeMap.get(nId) == CellType.WALL) continue;
+                    if (queue.contains(nId) || closedSet.contains(nId)) continue;
 
-                        if (nType != CellType.WALL && nState.getTraversalState() == TraversalState.UNVISITED && !frontier.contains(neighborId)) {
-                            // SET_PARENT
-                            CellState bPar = stateMap.get(neighborId).copy();
-                            CellState aPar = bPar.copy();
-                            aPar.setParentId(currId);
-                            aPar.setGCost(currState.getGCost() + 1.0);
-                            stateMap.put(neighborId, aPar);
-                            traceDeltas.add(new TraceDelta(stepCounter[0]++, neighborId, TraceAction.SET_PARENT, bPar, aPar.copy(), frontier.size()));
+                    int newGCost = currGCost + 1;
+                    DeltaParams enqP = new DeltaParams(TraceAction.ENQUEUE_FRONTIER, nId, queue.size() + 1);
+                    enqP.traversalState = TraversalState.FRONTIER;
+                    enqP.gCost = newGCost;
+                    enqP.fCost = newGCost;
+                    enqP.parentId = currId;
+                    enqP.parentIdSet = true;
+                    recordDelta.apply(enqP);
 
-                            // ENQUEUE
-                            frontier.push(neighborId);
-                            maxFrontierSize = Math.max(maxFrontierSize, frontier.size());
-                            CellState bEnq = stateMap.get(neighborId).copy();
-                            CellState aEnq = bEnq.copy();
-                            aEnq.setTraversalState(TraversalState.IN_FRONTIER);
-                            stateMap.put(neighborId, aEnq);
-                            traceDeltas.add(new TraceDelta(stepCounter[0]++, neighborId, TraceAction.ENQUEUE, bEnq, aEnq.copy(), frontier.size()));
-                        }
-                    }
+                    queue.push(nId);
+                    maxFrontierSize = Math.max(maxFrontierSize, queue.size());
                 }
+
+                closedSet.add(currId);
+                DeltaParams closeP = new DeltaParams(TraceAction.CLOSE_NODE, currId, queue.size());
+                closeP.traversalState = TraversalState.CLOSED;
+                recordDelta.apply(closeP);
+                activeNodeRef[0] = null;
             }
+
         } else if (algorithm == AlgorithmType.DFS) {
-            LifoStackFrontier frontier = new LifoStackFrontier();
+            LifoStackFrontier stack = new LifoStackFrontier();
+            frontierSupplier[0] = stack::getFrontierIds;
 
-            CellState beforeStart = stateMap.get(startNode).copy();
-            CellState afterStart = beforeStart.copy();
-            afterStart.setTraversalState(TraversalState.IN_FRONTIER);
-            afterStart.setGCost(0.0);
-            afterStart.setFCost(0.0);
-            stateMap.put(startNode, afterStart);
+            // INITIALIZE start
+            DeltaParams initP = new DeltaParams(TraceAction.INITIALIZE, startNode, 1);
+            initP.traversalState = TraversalState.FRONTIER;
+            initP.gCost = 0;
+            initP.hCost = 0;
+            initP.fCost = 0;
+            initP.parentId = null;
+            initP.parentIdSet = true;
+            initP.details = "Initialize start node in DFS stack";
+            recordDelta.apply(initP);
 
-            frontier.push(startNode);
-            maxFrontierSize = Math.max(maxFrontierSize, frontier.size());
-            traceDeltas.add(new TraceDelta(stepCounter[0]++, startNode, TraceAction.ENQUEUE, beforeStart, afterStart.copy(), frontier.size()));
+            stack.push(startNode);
+            maxFrontierSize = Math.max(maxFrontierSize, stack.size());
 
-            while (!frontier.isEmpty()) {
-                maxFrontierSize = Math.max(maxFrontierSize, frontier.size());
-                String currId = frontier.pop();
+            while (!stack.isEmpty()) {
+                maxFrontierSize = Math.max(maxFrontierSize, stack.size());
+                String currId = stack.pop();
 
-                CellState bDeq = stateMap.get(currId).copy();
-                traceDeltas.add(new TraceDelta(stepCounter[0]++, currId, TraceAction.DEQUEUE, bDeq, bDeq.copy(), frontier.size()));
+                DeltaParams deqP = new DeltaParams(TraceAction.DEQUEUE_FRONTIER, currId, stack.size());
+                recordDelta.apply(deqP);
 
-                CellState bVis = stateMap.get(currId).copy();
-                CellState aVis = bVis.copy();
-                aVis.setTraversalState(TraversalState.VISITED);
-                stateMap.put(currId, aVis);
-                traceDeltas.add(new TraceDelta(stepCounter[0]++, currId, TraceAction.VISIT, bVis, aVis.copy(), frontier.size()));
+                activeNodeRef[0] = currId;
+                DeltaParams examP = new DeltaParams(TraceAction.EXAMINE_NODE, currId, stack.size());
+                examP.traversalState = TraversalState.ACTIVE;
+                recordDelta.apply(examP);
+                visitedCount++;
 
                 if (currId.equals(targetNode)) {
                     pathFound = true;
+                    closedSet.add(currId);
+                    DeltaParams closeP = new DeltaParams(TraceAction.CLOSE_NODE, currId, stack.size());
+                    closeP.traversalState = TraversalState.CLOSED;
+                    recordDelta.apply(closeP);
+                    activeNodeRef[0] = null;
                     break;
                 }
 
                 int[] currPos = NodeIdUtil.parse(currId);
-                CellState currState = stateMap.get(currId);
+                int currGCost = stateMap.get(currId).getGCost();
 
-                // Collect valid unvisited neighbors in normal order [UP, RIGHT, DOWN, LEFT]
-                List<String> validNeighbors = new ArrayList<>();
-                for (Direction dir : DIRECTIONS) {
+                // DFS push order: LEFT, DOWN, RIGHT, UP so that pop order is UP, RIGHT, DOWN, LEFT
+                for (Direction dir : REVERSE_DIRECTIONS) {
                     int nr = currPos[0] + dir.dr;
                     int nc = currPos[1] + dir.dc;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
 
-                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-                        String neighborId = NodeIdUtil.format(nr, nc);
-                        CellType nType = cellTypeMap.get(neighborId);
-                        CellState nState = stateMap.get(neighborId);
+                    String nId = NodeIdUtil.format(nr, nc);
+                    if (cellTypeMap.get(nId) == CellType.WALL) continue;
+                    if (stack.contains(nId) || closedSet.contains(nId)) continue;
 
-                        if (nType != CellType.WALL && nState.getTraversalState() == TraversalState.UNVISITED && !frontier.contains(neighborId)) {
-                            validNeighbors.add(neighborId);
-                        }
-                    }
+                    int newGCost = currGCost + 1;
+                    DeltaParams enqP = new DeltaParams(TraceAction.ENQUEUE_FRONTIER, nId, stack.size() + 1);
+                    enqP.traversalState = TraversalState.FRONTIER;
+                    enqP.gCost = newGCost;
+                    enqP.fCost = newGCost;
+                    enqP.parentId = currId;
+                    enqP.parentIdSet = true;
+                    recordDelta.apply(enqP);
+
+                    stack.push(nId);
+                    maxFrontierSize = Math.max(maxFrontierSize, stack.size());
                 }
 
-                // Push in reverse order so the first neighbor is popped first
-                for (int i = validNeighbors.size() - 1; i >= 0; i--) {
-                    String nId = validNeighbors.get(i);
-
-                    CellState bPar = stateMap.get(nId).copy();
-                    CellState aPar = bPar.copy();
-                    aPar.setParentId(currId);
-                    aPar.setGCost(currState.getGCost() + 1.0);
-                    stateMap.put(nId, aPar);
-                    traceDeltas.add(new TraceDelta(stepCounter[0]++, nId, TraceAction.SET_PARENT, bPar, aPar.copy(), frontier.size()));
-
-                    frontier.push(nId);
-                    maxFrontierSize = Math.max(maxFrontierSize, frontier.size());
-                    CellState bEnq = stateMap.get(nId).copy();
-                    CellState aEnq = bEnq.copy();
-                    aEnq.setTraversalState(TraversalState.IN_FRONTIER);
-                    stateMap.put(nId, aEnq);
-                    traceDeltas.add(new TraceDelta(stepCounter[0]++, nId, TraceAction.ENQUEUE, bEnq, aEnq.copy(), frontier.size()));
-                }
+                closedSet.add(currId);
+                DeltaParams closeP = new DeltaParams(TraceAction.CLOSE_NODE, currId, stack.size());
+                closeP.traversalState = TraversalState.CLOSED;
+                recordDelta.apply(closeP);
+                activeNodeRef[0] = null;
             }
+
         } else if (algorithm == AlgorithmType.DIJKSTRA || algorithm == AlgorithmType.ASTAR) {
             boolean isAStar = (algorithm == AlgorithmType.ASTAR);
             IndexedMinHeapFrontier heap = new IndexedMinHeapFrontier(isAStar);
-            long seqCounter = 0;
+            frontierSupplier[0] = heap::getFrontierIds;
+            long enqueueSeq = 0;
 
-            double hStart = isAStar ? HeuristicCalculator.calculate(request.getHeuristic(), startPos[0], startPos[1], targetPos[0], targetPos[1]) : 0.0;
-            IndexedMinHeapFrontier.HeapNode startNodeItem = new IndexedMinHeapFrontier.HeapNode(startNode, startPos[0], startPos[1], 0.0, hStart, hStart, seqCounter++);
+            int[] startPos = NodeIdUtil.parse(startNode);
+            int[] targetPos = NodeIdUtil.parse(targetNode);
 
-            CellState beforeStart = stateMap.get(startNode).copy();
-            CellState afterStart = beforeStart.copy();
-            afterStart.setTraversalState(TraversalState.IN_FRONTIER);
-            afterStart.setGCost(0.0);
-            afterStart.setFCost(hStart);
-            stateMap.put(startNode, afterStart);
+            int startH = isAStar ? HeuristicCalculator.calculate(request.getHeuristic(), startPos[0], startPos[1], targetPos[0], targetPos[1]) : 0;
+            int startF = startH;
 
-            heap.push(startNodeItem);
+            // INITIALIZE start
+            DeltaParams initP = new DeltaParams(TraceAction.INITIALIZE, startNode, 1);
+            initP.traversalState = TraversalState.FRONTIER;
+            initP.gCost = 0;
+            initP.hCost = startH;
+            initP.fCost = startF;
+            initP.parentId = null;
+            initP.parentIdSet = true;
+            initP.details = "Initialize start node in indexed min-heap";
+            recordDelta.apply(initP);
+
+            heap.push(new IndexedMinHeapFrontier.HeapNode(startNode, startPos[0], startPos[1], 0, startH, startF, enqueueSeq++));
+            heap.drainSwaps();
             maxFrontierSize = Math.max(maxFrontierSize, heap.size());
-            traceDeltas.add(new TraceDelta(stepCounter[0]++, startNode, TraceAction.ENQUEUE, beforeStart, afterStart.copy(), heap.size()));
 
             while (!heap.isEmpty()) {
                 maxFrontierSize = Math.max(maxFrontierSize, heap.size());
                 IndexedMinHeapFrontier.HeapNode top = heap.pop();
+                List<HeapSwap> popSwaps = heap.drainSwaps();
 
-                CellState bDeq = stateMap.get(top.id).copy();
-                traceDeltas.add(new TraceDelta(stepCounter[0]++, top.id, TraceAction.DEQUEUE, bDeq, bDeq.copy(), heap.size()));
+                DeltaParams deqP = new DeltaParams(TraceAction.DEQUEUE_FRONTIER, top.id, heap.size());
+                deqP.heapSwaps = popSwaps;
+                recordDelta.apply(deqP);
 
-                CellState bVis = stateMap.get(top.id).copy();
-                CellState aVis = bVis.copy();
-                aVis.setTraversalState(TraversalState.VISITED);
-                stateMap.put(top.id, aVis);
-                traceDeltas.add(new TraceDelta(stepCounter[0]++, top.id, TraceAction.VISIT, bVis, aVis.copy(), heap.size()));
+                activeNodeRef[0] = top.id;
+                DeltaParams examP = new DeltaParams(TraceAction.EXAMINE_NODE, top.id, heap.size());
+                examP.traversalState = TraversalState.ACTIVE;
+                recordDelta.apply(examP);
+                visitedCount++;
 
                 if (top.id.equals(targetNode)) {
                     pathFound = true;
+                    closedSet.add(top.id);
+                    DeltaParams closeP = new DeltaParams(TraceAction.CLOSE_NODE, top.id, heap.size());
+                    closeP.traversalState = TraversalState.CLOSED;
+                    recordDelta.apply(closeP);
+                    activeNodeRef[0] = null;
                     break;
                 }
 
-                CellState currState = stateMap.get(top.id);
+                int currGCost = top.gCost;
 
                 for (Direction dir : DIRECTIONS) {
                     int nr = top.row + dir.dr;
                     int nc = top.col + dir.dc;
+                    if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
 
-                    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
-                        String neighborId = NodeIdUtil.format(nr, nc);
-                        CellType nType = cellTypeMap.get(neighborId);
-                        CellState nState = stateMap.get(neighborId);
+                    String nId = NodeIdUtil.format(nr, nc);
+                    if (cellTypeMap.get(nId) == CellType.WALL) continue;
+                    if (closedSet.contains(nId)) continue;
 
-                        if (nType == CellType.WALL || nState.getTraversalState() == TraversalState.VISITED) {
-                            continue;
+                    int entryCost = weightMap.get(nId);
+                    int newGCost = currGCost + entryCost;
+                    int hCost = isAStar ? HeuristicCalculator.calculate(request.getHeuristic(), nr, nc, targetPos[0], targetPos[1]) : 0;
+                    int newFCost = newGCost + hCost;
+
+                    if (heap.contains(nId)) {
+                        CellState currNeigh = stateMap.get(nId);
+                        if (newGCost < currNeigh.getGCost()) {
+                            heap.decreaseKey(nId, newGCost, newFCost);
+                            List<HeapSwap> decSwaps = heap.drainSwaps();
+
+                            DeltaParams decP = new DeltaParams(TraceAction.DECREASE_KEY, nId, heap.size());
+                            decP.gCost = newGCost;
+                            decP.fCost = newFCost;
+                            decP.parentId = top.id;
+                            decP.parentIdSet = true;
+                            decP.heapSwaps = decSwaps;
+                            decP.details = "Relaxation via " + top.id;
+                            recordDelta.apply(decP);
                         }
+                    } else {
+                        heap.push(new IndexedMinHeapFrontier.HeapNode(nId, nr, nc, newGCost, hCost, newFCost, enqueueSeq++));
+                        List<HeapSwap> pushSwaps = heap.drainSwaps();
 
-                        double edgeWeight = weightMap.getOrDefault(neighborId, 1.0);
-                        double tentativeGCost = currState.getGCost() + edgeWeight;
-                        double h = isAStar ? HeuristicCalculator.calculate(request.getHeuristic(), nr, nc, targetPos[0], targetPos[1]) : 0.0;
-                        double tentativeFCost = tentativeGCost + h;
+                        DeltaParams enqP = new DeltaParams(TraceAction.ENQUEUE_FRONTIER, nId, heap.size());
+                        enqP.traversalState = TraversalState.FRONTIER;
+                        enqP.gCost = newGCost;
+                        enqP.hCost = hCost;
+                        enqP.fCost = newFCost;
+                        enqP.parentId = top.id;
+                        enqP.parentIdSet = true;
+                        enqP.heapSwaps = pushSwaps;
+                        recordDelta.apply(enqP);
 
-                        if (nState.getTraversalState() == TraversalState.UNVISITED) {
-                            CellState bPar = stateMap.get(neighborId).copy();
-                            CellState aPar = bPar.copy();
-                            aPar.setParentId(top.id);
-                            aPar.setGCost(tentativeGCost);
-                            aPar.setFCost(tentativeFCost);
-                            stateMap.put(neighborId, aPar);
-                            traceDeltas.add(new TraceDelta(stepCounter[0]++, neighborId, TraceAction.SET_PARENT, bPar, aPar.copy(), heap.size()));
-
-                            IndexedMinHeapFrontier.HeapNode item = new IndexedMinHeapFrontier.HeapNode(neighborId, nr, nc, tentativeGCost, h, tentativeFCost, seqCounter++);
-                            heap.push(item);
-                            maxFrontierSize = Math.max(maxFrontierSize, heap.size());
-
-                            CellState bEnq = stateMap.get(neighborId).copy();
-                            CellState aEnq = bEnq.copy();
-                            aEnq.setTraversalState(TraversalState.IN_FRONTIER);
-                            stateMap.put(neighborId, aEnq);
-                            traceDeltas.add(new TraceDelta(stepCounter[0]++, neighborId, TraceAction.ENQUEUE, bEnq, aEnq.copy(), heap.size()));
-                        } else if (nState.getTraversalState() == TraversalState.IN_FRONTIER && tentativeGCost < nState.getGCost()) {
-                            CellState bUpd = stateMap.get(neighborId).copy();
-                            CellState aUpd = bUpd.copy();
-                            aUpd.setParentId(top.id);
-                            aUpd.setGCost(tentativeGCost);
-                            aUpd.setFCost(tentativeFCost);
-                            stateMap.put(neighborId, aUpd);
-                            traceDeltas.add(new TraceDelta(stepCounter[0]++, neighborId, TraceAction.UPDATE_COST, bUpd, aUpd.copy(), heap.size()));
-
-                            heap.update(neighborId, tentativeGCost, tentativeFCost);
-                        }
+                        maxFrontierSize = Math.max(maxFrontierSize, heap.size());
                     }
                 }
+
+                closedSet.add(top.id);
+                DeltaParams closeP = new DeltaParams(TraceAction.CLOSE_NODE, top.id, heap.size());
+                closeP.traversalState = TraversalState.CLOSED;
+                recordDelta.apply(closeP);
+                activeNodeRef[0] = null;
             }
         }
 
@@ -314,31 +449,88 @@ public class PathfindingEngine {
             }
             Collections.reverse(rev);
             path = rev;
-            pathCost = stateMap.get(targetNode).getGCost();
+            pathNodeCount = path.size();
+            pathEdgeCount = Math.max(0, path.size() - 1);
 
-            for (String pId : path) {
-                CellState bMark = stateMap.get(pId).copy();
-                CellState aMark = bMark.copy();
-                aMark.setInPath(true);
-                stateMap.put(pId, aMark);
-                traceDeltas.add(new TraceDelta(stepCounter[0]++, pId, TraceAction.MARK_PATH, bMark, aMark.copy(), 0));
+            int terrainCost = 0;
+            for (int i = 1; i < path.size(); i++) {
+                terrainCost += weightMap.get(path.get(i));
             }
+            terrainPathCost = terrainCost;
+
+            if (algorithm == AlgorithmType.BFS || algorithm == AlgorithmType.DFS) {
+                algorithmPathCost = pathEdgeCount;
+            } else {
+                algorithmPathCost = terrainCost;
+            }
+
+            // Final event: PATH_FOUND
+            for (String pId : path) {
+                DeltaParams pFoundP = new DeltaParams(TraceAction.PATH_FOUND, pId, 0);
+                pFoundP.inPath = true;
+                recordDelta.apply(pFoundP);
+            }
+        } else {
+            path = Collections.emptyList();
+            pathNodeCount = 0;
+            pathEdgeCount = 0;
+            algorithmPathCost = null;
+            terrainPathCost = null;
+
+            // Final event: NO_PATH_FOUND with reason FRONTIER_EXHAUSTED
+            DeltaParams noPathP = new DeltaParams(TraceAction.NO_PATH_FOUND, null, 0);
+            noPathP.details = "FRONTIER_EXHAUSTED";
+            recordDelta.apply(noPathP);
         }
 
-        long executionTimeMs = Math.max(1, System.currentTimeMillis() - startTime);
-        long visitedCount = stateMap.values().stream().filter(s -> s.getTraversalState() == TraversalState.VISITED).count();
+        double executionTimeMs = Math.max(0.01, (double) (System.currentTimeMillis() - startTime));
 
-        ExecutionMetrics metrics = new ExecutionMetrics((int) visitedCount, maxFrontierSize, (double) executionTimeMs, path.size(), pathCost);
+        ExecutionMetrics metrics = new ExecutionMetrics(
+                pathNodeCount,
+                pathEdgeCount,
+                algorithmPathCost,
+                terrainPathCost,
+                visitedCount,
+                maxFrontierSize,
+                executionTimeMs,
+                traceDeltas.size()
+        );
 
-        PathfindingResponse response = new PathfindingResponse();
-        response.setAlgorithm(algorithm);
-        response.setPathFound(pathFound);
-        response.setPath(path);
-        response.setPathCost(pathCost);
-        response.setTraceDeltas(traceDeltas);
-        response.setMetrics(metrics);
-        response.setReversible(true);
+        PathfindingResponse resp = new PathfindingResponse();
+        resp.setAlgorithm(algorithm);
+        resp.setPathFound(pathFound);
+        resp.setPath(path);
+        resp.setPathNodeCount(pathNodeCount);
+        resp.setPathEdgeCount(pathEdgeCount);
+        resp.setAlgorithmPathCost(algorithmPathCost);
+        resp.setTerrainPathCost(terrainPathCost);
+        resp.setTraceDeltas(traceDeltas);
+        resp.setKeyframes(keyframes);
+        resp.setMetrics(metrics);
+        resp.setReversible(true);
+        resp.setNoPathReason(pathFound ? null : "FRONTIER_EXHAUSTED");
 
-        return response;
+        return resp;
+    }
+
+    private static class DeltaParams {
+        final TraceAction action;
+        final String nodeId;
+        final int frontierSize;
+        TraversalState traversalState;
+        Boolean inPath;
+        Integer gCost;
+        Integer hCost;
+        Integer fCost;
+        String parentId;
+        boolean parentIdSet = false;
+        List<HeapSwap> heapSwaps = new ArrayList<>();
+        String details;
+
+        DeltaParams(TraceAction action, String nodeId, int frontierSize) {
+            this.action = action;
+            this.nodeId = nodeId;
+            this.frontierSize = frontierSize;
+        }
     }
 }

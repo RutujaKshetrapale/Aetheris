@@ -21,17 +21,22 @@ export class AetherisApiClient {
     return res.json();
   }
 
-  static async findPath(request: PathfindingRequest): Promise<PathfindingResponse> {
-    const res = await fetch(`${API_BASE}/pathfinding/find`, {
+  static async tracePath(request: PathfindingRequest): Promise<PathfindingResponse> {
+    const res = await fetch(`${API_BASE}/pathfinding/trace`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request)
     });
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(`Pathfinding failed: ${err || res.statusText}`);
+      throw new Error(`Pathfinding trace failed: ${err || res.statusText}`);
     }
     return res.json();
+  }
+
+  // Alias for backward compatibility
+  static async findPath(request: PathfindingRequest): Promise<PathfindingResponse> {
+    return this.tracePath(request);
   }
 
   static async getPresets(): Promise<GridPreset[]> {

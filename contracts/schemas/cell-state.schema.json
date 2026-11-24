@@ -7,20 +7,23 @@
   "properties": {
     "cellType": {
       "type": "string",
-      "enum": ["EMPTY", "WALL", "START", "TARGET", "WEIGHTED"]
+      "enum": ["EMPTY", "WALL", "WEIGHTED", "START", "TARGET"]
     },
     "traversalState": {
       "type": "string",
-      "enum": ["UNVISITED", "IN_FRONTIER", "VISITED"]
+      "enum": ["UNVISITED", "FRONTIER", "ACTIVE", "CLOSED"]
     },
     "inPath": {
       "type": "boolean"
     },
     "gCost": {
-      "type": ["number", "null"]
+      "type": ["integer", "null"]
+    },
+    "hCost": {
+      "type": ["integer", "null"]
     },
     "fCost": {
-      "type": ["number", "null"]
+      "type": ["integer", "null"]
     },
     "parentId": {
       "type": ["string", "null"],

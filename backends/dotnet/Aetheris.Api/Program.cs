@@ -43,21 +43,29 @@ var app = builder.Build();
 
 app.UseCors("AllowAll");
 
-// OpenAPI Endpoint
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-// 1. Health Endpoint
+// 1. Health Endpoints
 app.MapGet("/api/v1/health", (IPresetRepository repo, IConfiguration config) =>
 {
     string version = config["Aetheris:Version"] ?? "2.1.0";
     string engine = repo.AdapterType;
     bool dbConnected = repo.IsAvailable;
-    return Results.Ok(new HealthStatus("UP", ".NET 9.0 (C# 13)", version, engine, dbConnected));
+    string persistenceStatus = dbConnected ? "UP" : "PENDING";
+    return Results.Ok(new HealthStatus("UP", "UP", persistenceStatus, ".NET 9.0 (C# 13)", version, engine, dbConnected));
 })
 .WithName("GetHealth")
+.WithTags("System");
+
+app.MapGet("/api/v1/health/live", () => Results.Ok(new ProbeStatus("UP")))
+.WithName("GetLiveness")
+.WithTags("System");
+
+app.MapGet("/api/v1/health/ready", () => Results.Ok(new ProbeStatus("UP")))
+.WithName("GetReadiness")
 .WithTags("System");
 
 // 2. Algorithms List
@@ -67,30 +75,54 @@ app.MapGet("/api/v1/pathfinding/algorithms", () =>
     {
         new(AlgorithmType.BFS, "Breadth-First Search (BFS)", "Explores nodes level by level using a FIFO queue. Guarantees shortest path on unweighted graphs.", false, true, "FIFO_QUEUE"),
         new(AlgorithmType.DFS, "Depth-First Search (DFS)", "Explores along branches to maximum depth using a LIFO stack. Does not guarantee shortest path.", false, false, "LIFO_STACK"),
-        new(AlgorithmType.DIJKSTRA, "Dijkstra's Algorithm", "Finds optimal path using deterministic indexed min-heap. Guarantees shortest path with positive weights.", true, true, "INDEXED_MIN_HEAP"),
-        new(AlgorithmType.ASTAR, "A* Heuristic Search", "Directed search combining actual cost g(n) and heuristic h(n) via deterministic indexed min-heap.", true, true, "INDEXED_MIN_HEAP")
+        new(AlgorithmType.DIJKSTRA, "Dijkstra's Algorithm", "Finds optimal path using deterministic indexed min-heap. Guarantees shortest path with positive integer weights.", true, true, "INDEXED_MIN_HEAP"),
+        new(AlgorithmType.ASTAR, "A* Heuristic Search", "Directed search combining actual cost g(n) and integer Manhattan heuristic h(n) via deterministic indexed min-heap.", true, true, "INDEXED_MIN_HEAP")
     };
     return Results.Ok(list);
 })
 .WithName("GetAlgorithms")
 .WithTags("Pathfinding");
 
-// 3. Pathfinding Execute
-app.MapPost("/api/v1/pathfinding/find", (PathfindingRequest request, PathfindingEngine engine) =>
+// 3. Pathfinding Execute (/trace is canonical, /find supported as alias)
+Delegate traceHandler = (PathfindingRequest? request, PathfindingEngine engine) =>
 {
     if (request?.Grid == null)
     {
-        return Results.BadRequest(new { error = "Grid must not be null" });
+        var problem = new ProblemDetails(
+            "https://aetheris.dev/errors/bad-request",
+            "Invalid Request Parameters",
+            StatusCodes.Status400BadRequest,
+            "Missing algorithm or grid specification in pathfinding request.",
+            "/api/v1/pathfinding/trace"
+        );
+        return Results.Json(problem, contentType: "application/problem+json", statusCode: StatusCodes.Status400BadRequest);
     }
     var response = engine.Execute(request);
     return Results.Ok(response);
-})
-.WithName("FindPath")
-.WithTags("Pathfinding");
+};
+
+app.MapPost("/api/v1/pathfinding/trace", traceHandler)
+   .WithName("TracePath")
+   .WithTags("Pathfinding");
+
+app.MapPost("/api/v1/pathfinding/find", traceHandler)
+   .WithName("FindPath")
+   .WithTags("Pathfinding");
 
 // 4. Presets Endpoints
 app.MapGet("/api/v1/presets", async (IPresetRepository repo) =>
 {
+    if (!repo.IsAvailable)
+    {
+        var problem = new ProblemDetails(
+            "https://aetheris.dev/errors/service-unavailable",
+            "Persistence Layer Unavailable",
+            StatusCodes.Status503ServiceUnavailable,
+            "The requested database adapter is currently offline or pending Phase 2 implementation.",
+            "/api/v1/presets"
+        );
+        return Results.Json(problem, contentType: "application/problem+json", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
     var presets = await repo.GetAllAsync();
     return Results.Ok(presets);
 })
@@ -99,21 +131,51 @@ app.MapGet("/api/v1/presets", async (IPresetRepository repo) =>
 
 app.MapGet("/api/v1/presets/{id}", async (string id, IPresetRepository repo) =>
 {
+    if (!repo.IsAvailable)
+    {
+        var problem = new ProblemDetails(
+            "https://aetheris.dev/errors/service-unavailable",
+            "Persistence Layer Unavailable",
+            StatusCodes.Status503ServiceUnavailable,
+            "The requested database adapter is currently offline or pending Phase 2 implementation.",
+            $"/api/v1/presets/{id}"
+        );
+        return Results.Json(problem, contentType: "application/problem+json", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
     var preset = await repo.GetByIdAsync(id);
-    return preset != null ? Results.Ok(preset) : Results.NotFound();
+    if (preset == null)
+    {
+        var notFound = new ProblemDetails(
+            "https://aetheris.dev/errors/not-found",
+            "Resource Not Found",
+            StatusCodes.Status404NotFound,
+            $"Preset with ID {id} was not found.",
+            $"/api/v1/presets/{id}"
+        );
+        return Results.Json(notFound, contentType: "application/problem+json", statusCode: StatusCodes.Status404NotFound);
+    }
+    return Results.Ok(preset);
 })
 .WithName("GetPresetById")
 .WithTags("Presets");
 
 app.MapPost("/api/v1/presets", async (GridPreset preset, IPresetRepository repo) =>
 {
-    var saved = await repo.SaveAsync(preset);
-    return Results.Created($"/api/v1/presets/{saved.Id}", saved);
+    if (!repo.IsAvailable)
+    {
+        var problem = new ProblemDetails(
+            "https://aetheris.dev/errors/service-unavailable",
+            "Persistence Layer Unavailable",
+            StatusCodes.Status503ServiceUnavailable,
+            "The requested database adapter is currently offline or pending Phase 2 implementation.",
+            "/api/v1/presets"
+        );
+        return Results.Json(problem, contentType: "application/problem+json", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    var created = await repo.SaveAsync(preset);
+    return Results.Created($"/api/v1/presets/{created.Id}", created);
 })
 .WithName("SavePreset")
 .WithTags("Presets");
 
 app.Run();
-
-// Partial class for WebApplicationFactory testing if needed
-public partial class Program { }

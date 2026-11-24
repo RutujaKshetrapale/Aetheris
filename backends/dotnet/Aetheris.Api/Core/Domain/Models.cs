@@ -7,28 +7,32 @@ public enum CellType
 {
     EMPTY,
     WALL,
+    WEIGHTED,
     START,
-    TARGET,
-    WEIGHTED
+    TARGET
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum TraversalState
 {
     UNVISITED,
-    IN_FRONTIER,
-    VISITED
+    FRONTIER,
+    ACTIVE,
+    CLOSED
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum TraceAction
 {
-    ENQUEUE,
-    DEQUEUE,
-    VISIT,
-    UPDATE_COST,
-    SET_PARENT,
-    MARK_PATH
+    INITIALIZE,
+    ENQUEUE_FRONTIER,
+    DEQUEUE_FRONTIER,
+    EXAMINE_NODE,
+    UPDATE_METRICS,
+    CLOSE_NODE,
+    DECREASE_KEY,
+    PATH_FOUND,
+    NO_PATH_FOUND
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -43,9 +47,7 @@ public enum AlgorithmType
 [JsonConverter(typeof(JsonStringEnumConverter))]
 public enum HeuristicType
 {
-    MANHATTAN,
-    EUCLIDEAN,
-    CHEBYSHEV
+    MANHATTAN
 }
 
 public class CellDefinition
@@ -54,11 +56,11 @@ public class CellDefinition
     public int Row { get; set; }
     public int Col { get; set; }
     public CellType CellType { get; set; } = CellType.EMPTY;
-    public double Weight { get; set; } = 1.0;
+    public int Weight { get; set; } = 1;
 
     public CellDefinition() { }
 
-    public CellDefinition(string id, int row, int col, CellType cellType, double weight = 1.0)
+    public CellDefinition(string id, int row, int col, CellType cellType, int weight = 1)
     {
         Id = id;
         Row = row;
@@ -73,25 +75,27 @@ public class CellState
     public CellType CellType { get; set; }
     public TraversalState TraversalState { get; set; }
     public bool InPath { get; set; }
-    public double? GCost { get; set; }
-    public double? FCost { get; set; }
+    public int? GCost { get; set; }
+    public int? HCost { get; set; }
+    public int? FCost { get; set; }
     public string? ParentId { get; set; }
 
     public CellState() { }
 
-    public CellState(CellType cellType, TraversalState traversalState, bool inPath, double? gCost, double? fCost, string? parentId)
+    public CellState(CellType cellType, TraversalState traversalState, bool inPath, int? gCost, int? hCost, int? fCost, string? parentId)
     {
         CellType = cellType;
         TraversalState = traversalState;
         InPath = inPath;
         GCost = gCost;
+        HCost = hCost;
         FCost = fCost;
         ParentId = parentId;
     }
 
     public CellState Copy()
     {
-        return new CellState(CellType, TraversalState, InPath, GCost, FCost, ParentId);
+        return new CellState(CellType, TraversalState, InPath, GCost, HCost, FCost, ParentId);
     }
 }
 
@@ -115,45 +119,93 @@ public class GridModel
     }
 }
 
+public class HeapSwap
+{
+    public int IndexA { get; set; }
+    public int IndexB { get; set; }
+    public string NodeA { get; set; } = string.Empty;
+    public string NodeB { get; set; } = string.Empty;
+
+    public HeapSwap() { }
+
+    public HeapSwap(int indexA, int indexB, string nodeA, string nodeB)
+    {
+        IndexA = indexA;
+        IndexB = indexB;
+        NodeA = nodeA;
+        NodeB = nodeB;
+    }
+}
+
 public class TraceDelta
 {
     public int Step { get; set; }
-    public string NodeId { get; set; } = string.Empty;
     public TraceAction Action { get; set; }
-    public CellState BeforeState { get; set; } = new();
-    public CellState AfterState { get; set; } = new();
+    public string? NodeId { get; set; }
+    public CellState? BeforeState { get; set; }
+    public CellState? AfterState { get; set; }
     public int FrontierSize { get; set; }
+    public List<HeapSwap> HeapSwaps { get; set; } = new();
+    public string? Details { get; set; }
 
     public TraceDelta() { }
 
-    public TraceDelta(int step, string nodeId, TraceAction action, CellState beforeState, CellState afterState, int frontierSize)
+    public TraceDelta(int step, TraceAction action, string? nodeId, CellState? beforeState, CellState? afterState, int frontierSize, List<HeapSwap>? heapSwaps = null, string? details = null)
     {
         Step = step;
-        NodeId = nodeId;
         Action = action;
+        NodeId = nodeId;
         BeforeState = beforeState;
         AfterState = afterState;
         FrontierSize = frontierSize;
+        HeapSwaps = heapSwaps ?? new List<HeapSwap>();
+        Details = details;
+    }
+}
+
+public class Keyframe
+{
+    public int Step { get; set; }
+    public Dictionary<string, CellState> CellStates { get; set; } = new();
+    public List<string> Frontier { get; set; } = new();
+    public string? ActiveNode { get; set; }
+    public int ClosedCount { get; set; }
+
+    public Keyframe() { }
+
+    public Keyframe(int step, Dictionary<string, CellState> cellStates, List<string> frontier, string? activeNode, int closedCount)
+    {
+        Step = step;
+        CellStates = cellStates;
+        Frontier = frontier;
+        ActiveNode = activeNode;
+        ClosedCount = closedCount;
     }
 }
 
 public class ExecutionMetrics
 {
+    public int PathNodeCount { get; set; }
+    public int PathEdgeCount { get; set; }
+    public int? AlgorithmPathCost { get; set; }
+    public int? TerrainPathCost { get; set; }
     public int NodesVisited { get; set; }
     public int MaxFrontierSize { get; set; }
     public double ExecutionTimeMs { get; set; }
-    public int PathLength { get; set; }
-    public double PathCost { get; set; }
+    public int TotalSteps { get; set; }
 
     public ExecutionMetrics() { }
 
-    public ExecutionMetrics(int nodesVisited, int maxFrontierSize, double executionTimeMs, int pathLength, double pathCost)
+    public ExecutionMetrics(int pathNodeCount, int pathEdgeCount, int? algorithmPathCost, int? terrainPathCost, int nodesVisited, int maxFrontierSize, double executionTimeMs, int totalSteps)
     {
+        PathNodeCount = pathNodeCount;
+        PathEdgeCount = pathEdgeCount;
+        AlgorithmPathCost = algorithmPathCost;
+        TerrainPathCost = terrainPathCost;
         NodesVisited = nodesVisited;
         MaxFrontierSize = maxFrontierSize;
         ExecutionTimeMs = executionTimeMs;
-        PathLength = pathLength;
-        PathCost = pathCost;
+        TotalSteps = totalSteps;
     }
 }
 
@@ -162,7 +214,6 @@ public class PathfindingRequest
     public AlgorithmType Algorithm { get; set; }
     public GridModel Grid { get; set; } = new();
     public HeuristicType Heuristic { get; set; } = HeuristicType.MANHATTAN;
-    public bool AllowDiagonals { get; set; } = false;
 
     public PathfindingRequest() { }
 
@@ -178,10 +229,15 @@ public class PathfindingResponse
     public AlgorithmType Algorithm { get; set; }
     public bool PathFound { get; set; }
     public List<string> Path { get; set; } = new();
-    public double PathCost { get; set; }
+    public int PathNodeCount { get; set; }
+    public int PathEdgeCount { get; set; }
+    public int? AlgorithmPathCost { get; set; }
+    public int? TerrainPathCost { get; set; }
     public List<TraceDelta> TraceDeltas { get; set; } = new();
+    public List<Keyframe> Keyframes { get; set; } = new();
     public ExecutionMetrics Metrics { get; set; } = new();
     public bool Reversible { get; set; } = true;
+    public string? NoPathReason { get; set; }
 }
 
 public class AlgorithmInfo
@@ -229,6 +285,8 @@ public class GridPreset
 public class HealthStatus
 {
     public string Status { get; set; } = "UP";
+    public string EngineStatus { get; set; } = "UP";
+    public string PersistenceStatus { get; set; } = "UP";
     public string Platform { get; set; } = ".NET 9.0 (C# 13)";
     public string Version { get; set; } = "2.1.0";
     public string PersistenceEngine { get; set; } = "IN_MEMORY";
@@ -236,12 +294,42 @@ public class HealthStatus
 
     public HealthStatus() { }
 
-    public HealthStatus(string status, string platform, string version, string persistenceEngine, bool databaseConnected)
+    public HealthStatus(string status, string engineStatus, string persistenceStatus, string platform, string version, string persistenceEngine, bool databaseConnected)
     {
         Status = status;
+        EngineStatus = engineStatus;
+        PersistenceStatus = persistenceStatus;
         Platform = platform;
         Version = version;
         PersistenceEngine = persistenceEngine;
         DatabaseConnected = databaseConnected;
+    }
+}
+
+public class ProbeStatus
+{
+    public string Status { get; set; } = "UP";
+
+    public ProbeStatus() { }
+    public ProbeStatus(string status) { Status = status; }
+}
+
+public class ProblemDetails
+{
+    public string Type { get; set; } = "https://aetheris.dev/errors/problem";
+    public string Title { get; set; } = string.Empty;
+    public int Status { get; set; }
+    public string? Detail { get; set; }
+    public string? Instance { get; set; }
+
+    public ProblemDetails() { }
+
+    public ProblemDetails(string type, string title, int status, string? detail, string? instance)
+    {
+        Type = type;
+        Title = title;
+        Status = status;
+        Detail = detail;
+        Instance = instance;
     }
 }

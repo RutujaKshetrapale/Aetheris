@@ -14,12 +14,8 @@
     },
     "heuristic": {
       "type": "string",
-      "enum": ["MANHATTAN", "EUCLIDEAN", "CHEBYSHEV"],
+      "enum": ["MANHATTAN"],
       "default": "MANHATTAN"
-    },
-    "allowDiagonals": {
-      "type": "boolean",
-      "default": false
     }
   },
   "additionalProperties": false

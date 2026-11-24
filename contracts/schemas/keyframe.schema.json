@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "keyframe.schema.json",
+  "title": "Aetheris Algorithm Keyframe Snapshot",
+  "type": "object",
+  "required": ["step", "cellStates", "frontier", "closedCount"],
+  "properties": {
+    "step": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cellStates": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "cell-state.schema.json"
+      }
+    },
+    "frontier": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "activeNode": {
+      "type": ["string", "null"]
+    },
+    "closedCount": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

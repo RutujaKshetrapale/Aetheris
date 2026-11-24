@@ -5,11 +5,11 @@ public class CellDefinition {
     private int row;
     private int col;
     private CellType cellType;
-    private double weight = 1.0;
+    private int weight = 1;
 
     public CellDefinition() {}
 
-    public CellDefinition(String id, int row, int col, CellType cellType, double weight) {
+    public CellDefinition(String id, int row, int col, CellType cellType, int weight) {
         this.id = id;
         this.row = row;
         this.col = col;
@@ -29,6 +29,6 @@ public class CellDefinition {
     public CellType getCellType() { return cellType; }
     public void setCellType(CellType cellType) { this.cellType = cellType; }
 
-    public double getWeight() { return weight; }
-    public void setWeight(double weight) { this.weight = weight; }
+    public int getWeight() { return weight; }
+    public void setWeight(int weight) { this.weight = weight; }
 }

@@ -1,9 +1,6 @@
 package com.aetheris.frontier;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class LifoStackFrontier implements ReversibleFrontier<String> {
     private final Deque<String> stack = new ArrayDeque<>();
@@ -41,5 +38,10 @@ public class LifoStackFrontier implements ReversibleFrontier<String> {
     public void clear() {
         stack.clear();
         inStack.clear();
+    }
+
+    @Override
+    public List<String> getFrontierIds() {
+        return new ArrayList<>(stack);
     }
 }

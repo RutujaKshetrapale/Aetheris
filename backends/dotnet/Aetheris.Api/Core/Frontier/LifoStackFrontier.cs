@@ -13,19 +13,19 @@ public class LifoStackFrontier : IReversibleFrontier<string>
 
     public string Pop()
     {
-        var element = _stack.Pop();
+        string element = _stack.Pop();
         _inStack.Remove(element);
         return element;
     }
 
     public bool IsEmpty => _stack.Count == 0;
     public int Count => _stack.Count;
-
     public bool Contains(string id) => _inStack.Contains(id);
-
     public void Clear()
     {
         _stack.Clear();
         _inStack.Clear();
     }
+
+    public List<string> GetFrontierIds() => new(_stack);
 }

@@ -3,29 +3,62 @@
   "$id": "trace-delta.schema.json",
   "title": "Aetheris Reversible Trace Delta",
   "type": "object",
-  "required": ["step", "nodeId", "action", "beforeState", "afterState"],
+  "required": ["step", "action"],
   "properties": {
     "step": {
       "type": "integer",
       "minimum": 0
     },
-    "nodeId": {
-      "type": "string",
-      "pattern": "^r[0-9]+c[0-9]+$"
-    },
     "action": {
       "type": "string",
-      "enum": ["ENQUEUE", "DEQUEUE", "VISIT", "UPDATE_COST", "SET_PARENT", "MARK_PATH"]
+      "enum": [
+        "INITIALIZE",
+        "ENQUEUE_FRONTIER",
+        "DEQUEUE_FRONTIER",
+        "EXAMINE_NODE",
+        "UPDATE_METRICS",
+        "CLOSE_NODE",
+        "DECREASE_KEY",
+        "PATH_FOUND",
+        "NO_PATH_FOUND"
+      ]
+    },
+    "nodeId": {
+      "type": ["string", "null"],
+      "pattern": "^r[0-9]+c[0-9]+$"
     },
     "beforeState": {
-      "$ref": "cell-state.schema.json"
+      "oneOf": [
+        { "$ref": "cell-state.schema.json" },
+        { "type": "null" }
+      ]
     },
     "afterState": {
-      "$ref": "cell-state.schema.json"
+      "oneOf": [
+        { "$ref": "cell-state.schema.json" },
+        { "type": "null" }
+      ]
     },
     "frontierSize": {
       "type": "integer",
       "minimum": 0
+    },
+    "heapSwaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["indexA", "indexB", "nodeA", "nodeB"],
+        "properties": {
+          "indexA": { "type": "integer", "minimum": 0 },
+          "indexB": { "type": "integer", "minimum": 0 },
+          "nodeA": { "type": "string" },
+          "nodeB": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "details": {
+      "type": ["string", "null"]
     }
   },
   "additionalProperties": false

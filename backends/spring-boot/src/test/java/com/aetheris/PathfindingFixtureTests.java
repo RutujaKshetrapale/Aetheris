@@ -1,10 +1,7 @@
 package com.aetheris;
 
 import com.aetheris.algorithm.PathfindingEngine;
-import com.aetheris.domain.model.AlgorithmType;
-import com.aetheris.domain.model.GridModel;
-import com.aetheris.domain.model.PathfindingRequest;
-import com.aetheris.domain.model.PathfindingResponse;
+import com.aetheris.domain.model.*;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,8 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -30,7 +26,6 @@ public class PathfindingFixtureTests {
     }
 
     private JsonNode loadFixture(String filename) throws IOException {
-        // Look in contracts/fixtures
         File file = new File("../../contracts/fixtures/" + filename);
         if (!file.exists()) {
             file = new File("contracts/fixtures/" + filename);
@@ -42,91 +37,141 @@ public class PathfindingFixtureTests {
         return objectMapper.readTree(file);
     }
 
+    private void verifyFixture(String filename, AlgorithmType expectedAlgo) throws IOException {
+        JsonNode fixture = loadFixture(filename);
+        GridModel grid = objectMapper.treeToValue(fixture.get("grid"), GridModel.class);
+
+        PathfindingRequest request = new PathfindingRequest(expectedAlgo, grid);
+        PathfindingResponse response = engine.execute(request);
+
+        JsonNode expected = fixture.get("expectedOutcome");
+        boolean expectedPathFound = expected.get("pathFound").asBoolean();
+        assertEquals(expectedPathFound, response.isPathFound(), filename + " pathFound mismatch");
+
+        List<String> expectedPath = new ArrayList<>();
+        expected.get("path").forEach(node -> expectedPath.add(node.asText()));
+        assertEquals(expectedPath, response.getPath(), filename + " path mismatch");
+
+        assertEquals(expected.get("pathNodeCount").asInt(), response.getPathNodeCount(), filename + " pathNodeCount mismatch");
+        assertEquals(expected.get("pathEdgeCount").asInt(), response.getPathEdgeCount(), filename + " pathEdgeCount mismatch");
+
+        if (expected.get("algorithmPathCost").isNull()) {
+            assertNull(response.getAlgorithmPathCost(), filename + " algorithmPathCost should be null");
+        } else {
+            assertEquals(expected.get("algorithmPathCost").asInt(), response.getAlgorithmPathCost().intValue(), filename + " algorithmPathCost mismatch");
+        }
+
+        if (expected.get("terrainPathCost").isNull()) {
+            assertNull(response.getTerrainPathCost(), filename + " terrainPathCost should be null");
+        } else {
+            assertEquals(expected.get("terrainPathCost").asInt(), response.getTerrainPathCost().intValue(), filename + " terrainPathCost mismatch");
+        }
+
+        assertEquals(expected.get("nodesVisited").asInt(), response.getMetrics().getNodesVisited(), filename + " nodesVisited mismatch");
+        assertEquals(expected.get("totalSteps").asInt(), response.getTraceDeltas().size(), filename + " totalSteps mismatch");
+
+        if (expected.get("noPathReason").isNull()) {
+            assertNull(response.getNoPathReason(), filename + " noPathReason should be null");
+        } else {
+            assertEquals(expected.get("noPathReason").asText(), response.getNoPathReason(), filename + " noPathReason mismatch");
+        }
+
+        // Full Reversibility Verification:
+        // 1. Build initial grid state map
+        Map<String, CellState> stateMap = new HashMap<>();
+        for (int r = 0; r < grid.getRows(); r++) {
+            for (int c = 0; c < grid.getCols(); c++) {
+                String id = "r" + r + "c" + c;
+                CellType ct = CellType.EMPTY;
+                if (id.equals(grid.getTargetNode())) ct = CellType.TARGET;
+                if (id.equals(grid.getStartNode())) ct = CellType.START;
+                if (grid.getCells() != null) {
+                    for (CellDefinition cd : grid.getCells()) {
+                        if (cd.getId().equals(id)) {
+                            ct = cd.getCellType();
+                            break;
+                        }
+                    }
+                }
+                stateMap.put(id, new CellState(ct, TraversalState.UNVISITED, false, null, null, null, null));
+            }
+        }
+
+        // Deep clone initial snapshots
+        Map<String, CellState> initialSnapshots = new HashMap<>();
+        for (Map.Entry<String, CellState> entry : stateMap.entrySet()) {
+            initialSnapshots.put(entry.getKey(), entry.getValue().copy());
+        }
+
+        // Apply deltas forward
+        for (TraceDelta delta : response.getTraceDeltas()) {
+            if (delta.getNodeId() != null && delta.getAfterState() != null) {
+                stateMap.put(delta.getNodeId(), delta.getAfterState().copy());
+            }
+        }
+
+        // Check path overlay in final state
+        for (String pId : response.getPath()) {
+            CellState s = stateMap.get(pId);
+            assertNotNull(s, "Path node " + pId + " must exist");
+            assertTrue(s.isInPath(), "Path node " + pId + " must be marked inPath");
+        }
+
+        // Apply deltas backward
+        for (int i = response.getTraceDeltas().size() - 1; i >= 0; i--) {
+            TraceDelta delta = response.getTraceDeltas().get(i);
+            if (delta.getNodeId() != null && delta.getBeforeState() != null) {
+                stateMap.put(delta.getNodeId(), delta.getBeforeState().copy());
+            }
+        }
+
+        // Verify exact restoration to initial state
+        for (Map.Entry<String, CellState> entry : initialSnapshots.entrySet()) {
+            CellState initial = entry.getValue();
+            CellState restored = stateMap.get(entry.getKey());
+            assertEquals(initial.getCellType(), restored.getCellType(), "CellType restoration failed for " + entry.getKey());
+            assertEquals(initial.getTraversalState(), restored.getTraversalState(), "TraversalState restoration failed for " + entry.getKey());
+            assertEquals(initial.isInPath(), restored.isInPath(), "inPath restoration failed for " + entry.getKey());
+            assertEquals(initial.getGCost(), restored.getGCost(), "gCost restoration failed for " + entry.getKey());
+            assertEquals(initial.getHCost(), restored.getHCost(), "hCost restoration failed for " + entry.getKey());
+            assertEquals(initial.getFCost(), restored.getFCost(), "fCost restoration failed for " + entry.getKey());
+            assertEquals(initial.getParentId(), restored.getParentId(), "parentId restoration failed for " + entry.getKey());
+        }
+    }
+
     @Test
-    @DisplayName("Verify Spring Boot BFS produces identical output to canonical fixture")
+    @DisplayName("Verify Spring Boot BFS matches canonical fixture")
     public void testBfsFixture() throws IOException {
-        JsonNode fixture = loadFixture("bfs.fixture.json");
-        GridModel grid = objectMapper.treeToValue(fixture.get("grid"), GridModel.class);
-
-        PathfindingRequest request = new PathfindingRequest(AlgorithmType.BFS, grid);
-        PathfindingResponse response = engine.execute(request);
-
-        JsonNode expected = fixture.get("expectedOutcome");
-        assertTrue(response.isPathFound(), "BFS must find a path");
-
-        List<String> expectedPath = new ArrayList<>();
-        expected.get("path").forEach(node -> expectedPath.add(node.asText()));
-
-        assertEquals(expectedPath, response.getPath(), "BFS path must exactly match canonical fixture");
-        assertEquals(expected.get("pathCost").asDouble(), response.getPathCost(), 1e-6, "BFS path cost must match");
-        assertEquals(expected.get("pathLength").asInt(), response.getPath().size(), "BFS path length must match");
-        assertEquals(expected.get("nodesVisited").asInt(), response.getMetrics().getNodesVisited(), "BFS visited node count must match");
-        assertEquals(expected.get("totalTraceDeltas").asInt(), response.getTraceDeltas().size(), "BFS total trace delta count must match");
+        verifyFixture("bfs.fixture.json", AlgorithmType.BFS);
     }
 
     @Test
-    @DisplayName("Verify Spring Boot DFS produces identical output to canonical fixture")
+    @DisplayName("Verify Spring Boot DFS matches canonical fixture")
     public void testDfsFixture() throws IOException {
-        JsonNode fixture = loadFixture("dfs.fixture.json");
-        GridModel grid = objectMapper.treeToValue(fixture.get("grid"), GridModel.class);
-
-        PathfindingRequest request = new PathfindingRequest(AlgorithmType.DFS, grid);
-        PathfindingResponse response = engine.execute(request);
-
-        JsonNode expected = fixture.get("expectedOutcome");
-        assertTrue(response.isPathFound(), "DFS must find a path");
-
-        List<String> expectedPath = new ArrayList<>();
-        expected.get("path").forEach(node -> expectedPath.add(node.asText()));
-
-        assertEquals(expectedPath, response.getPath(), "DFS path must exactly match canonical fixture");
-        assertEquals(expected.get("pathCost").asDouble(), response.getPathCost(), 1e-6, "DFS path cost must match");
-        assertEquals(expected.get("pathLength").asInt(), response.getPath().size(), "DFS path length must match");
-        assertEquals(expected.get("nodesVisited").asInt(), response.getMetrics().getNodesVisited(), "DFS visited node count must match");
-        assertEquals(expected.get("totalTraceDeltas").asInt(), response.getTraceDeltas().size(), "DFS total trace delta count must match");
+        verifyFixture("dfs.fixture.json", AlgorithmType.DFS);
     }
 
     @Test
-    @DisplayName("Verify Spring Boot Dijkstra produces identical output to canonical fixture")
+    @DisplayName("Verify Spring Boot Dijkstra matches canonical fixture")
     public void testDijkstraFixture() throws IOException {
-        JsonNode fixture = loadFixture("dijkstra.fixture.json");
-        GridModel grid = objectMapper.treeToValue(fixture.get("grid"), GridModel.class);
-
-        PathfindingRequest request = new PathfindingRequest(AlgorithmType.DIJKSTRA, grid);
-        PathfindingResponse response = engine.execute(request);
-
-        JsonNode expected = fixture.get("expectedOutcome");
-        assertTrue(response.isPathFound(), "Dijkstra must find a path");
-
-        List<String> expectedPath = new ArrayList<>();
-        expected.get("path").forEach(node -> expectedPath.add(node.asText()));
-
-        assertEquals(expectedPath, response.getPath(), "Dijkstra path must exactly match canonical fixture");
-        assertEquals(expected.get("pathCost").asDouble(), response.getPathCost(), 1e-6, "Dijkstra path cost must match");
-        assertEquals(expected.get("pathLength").asInt(), response.getPath().size(), "Dijkstra path length must match");
-        assertEquals(expected.get("nodesVisited").asInt(), response.getMetrics().getNodesVisited(), "Dijkstra visited node count must match");
-        assertEquals(expected.get("totalTraceDeltas").asInt(), response.getTraceDeltas().size(), "Dijkstra total trace delta count must match");
+        verifyFixture("dijkstra.fixture.json", AlgorithmType.DIJKSTRA);
     }
 
     @Test
-    @DisplayName("Verify Spring Boot A* produces identical output to canonical fixture")
-    public void testAStarFixture() throws IOException {
-        JsonNode fixture = loadFixture("astar.fixture.json");
-        GridModel grid = objectMapper.treeToValue(fixture.get("grid"), GridModel.class);
+    @DisplayName("Verify Spring Boot A* matches canonical fixture")
+    public void testAstarFixture() throws IOException {
+        verifyFixture("astar.fixture.json", AlgorithmType.ASTAR);
+    }
 
-        PathfindingRequest request = new PathfindingRequest(AlgorithmType.ASTAR, grid);
-        PathfindingResponse response = engine.execute(request);
+    @Test
+    @DisplayName("Verify Spring Boot Start Equals Target special case matches canonical fixture")
+    public void testStartEqualsTargetFixture() throws IOException {
+        verifyFixture("start-equals-target.fixture.json", AlgorithmType.DIJKSTRA);
+    }
 
-        JsonNode expected = fixture.get("expectedOutcome");
-        assertTrue(response.isPathFound(), "A* must find a path");
-
-        List<String> expectedPath = new ArrayList<>();
-        expected.get("path").forEach(node -> expectedPath.add(node.asText()));
-
-        assertEquals(expectedPath, response.getPath(), "A* path must exactly match canonical fixture");
-        assertEquals(expected.get("pathCost").asDouble(), response.getPathCost(), 1e-6, "A* path cost must match");
-        assertEquals(expected.get("pathLength").asInt(), response.getPath().size(), "A* path length must match");
-        assertEquals(expected.get("nodesVisited").asInt(), response.getMetrics().getNodesVisited(), "A* visited node count must match");
-        assertEquals(expected.get("totalTraceDeltas").asInt(), response.getTraceDeltas().size(), "A* total trace delta count must match");
+    @Test
+    @DisplayName("Verify Spring Boot Unreachable Target special case matches canonical fixture")
+    public void testUnreachableTargetFixture() throws IOException {
+        verifyFixture("unreachable-target.fixture.json", AlgorithmType.BFS);
     }
 }
