@@ -502,12 +502,11 @@ export function executeLocalPathfinding(request: PathfindingRequest): Pathfindin
     }
     terrainCost = sumTerrain;
 
-    if (algorithm === 'BFS') algoCost = pathEdgeCount;
-    else if (algorithm === 'DFS') algoCost = null;
+    if (algorithm === 'BFS' || algorithm === 'DFS') algoCost = pathEdgeCount;
     else algoCost = terrainCost;
   }
 
-  const executionTimeMs = Math.round((performance.now() - startTime) * 100) / 100;
+  const executionTimeMs = Math.max(0.01, Math.round((performance.now() - startTime) * 100) / 100);
 
   return {
     algorithm,
@@ -530,6 +529,6 @@ export function executeLocalPathfinding(request: PathfindingRequest): Pathfindin
       totalSteps: deltas.length
     },
     reversible: true,
-    noPathReason: pathFound ? null : 'All reachable traversable cells explored without discovering target'
+    noPathReason: pathFound ? null : 'FRONTIER_EXHAUSTED'
   };
 }

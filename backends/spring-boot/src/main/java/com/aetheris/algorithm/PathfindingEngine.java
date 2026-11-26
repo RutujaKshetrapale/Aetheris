@@ -1,6 +1,7 @@
 package com.aetheris.algorithm;
 
 import com.aetheris.domain.model.*;
+import com.aetheris.domain.validation.GridValidator;
 import com.aetheris.frontier.FifoQueueFrontier;
 import com.aetheris.frontier.IndexedMinHeapFrontier;
 import com.aetheris.frontier.LifoStackFrontier;
@@ -28,72 +29,12 @@ public class PathfindingEngine {
     };
 
     public void validate(PathfindingRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("Pathfinding request cannot be null");
-        }
-        if (request.getAlgorithm() == null) {
-            throw new IllegalArgumentException("Algorithm must be specified");
-        }
-        GridModel grid = request.getGrid();
-        if (grid == null) {
-            throw new IllegalArgumentException("Grid model cannot be null");
-        }
-        int rows = grid.getRows();
-        int cols = grid.getCols();
-        if (rows < 1 || cols < 1 || rows > 200 || cols > 200) {
-            throw new IllegalArgumentException("Grid dimensions must be integers between 1 and 200: rows=" + rows + ", cols=" + cols);
-        }
-        String startNode = grid.getStartNode();
-        String targetNode = grid.getTargetNode();
-        if (startNode == null || targetNode == null || startNode.isBlank() || targetNode.isBlank()) {
-            throw new IllegalArgumentException("Start node and target node are required");
-        }
-        int[] startPos;
-        int[] targetPos;
-        try {
-            startPos = NodeIdUtil.parse(startNode);
-            targetPos = NodeIdUtil.parse(targetNode);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid node id format: " + e.getMessage(), e);
-        }
-        if (startPos[0] < 0 || startPos[0] >= rows || startPos[1] < 0 || startPos[1] >= cols) {
-            throw new IllegalArgumentException("Start node out of bounds: " + startNode);
-        }
-        if (targetPos[0] < 0 || targetPos[0] >= rows || targetPos[1] < 0 || targetPos[1] >= cols) {
-            throw new IllegalArgumentException("Target node out of bounds: " + targetNode);
-        }
-        if (grid.getCells() != null) {
-            for (CellDefinition cd : grid.getCells()) {
-                if (cd.getId() == null || cd.getCellType() == null) {
-                    throw new IllegalArgumentException("Cell definition must have id and cellType");
-                }
-                int[] pos;
-                try {
-                    pos = NodeIdUtil.parse(cd.getId());
-                } catch (Exception e) {
-                    throw new IllegalArgumentException("Invalid cell id format: " + cd.getId(), e);
-                }
-                if (pos[0] < 0 || pos[0] >= rows || pos[1] < 0 || pos[1] >= cols) {
-                    throw new IllegalArgumentException("Cell " + cd.getId() + " out of bounds");
-                }
-                if (pos[0] != cd.getRow() || pos[1] != cd.getCol()) {
-                    throw new IllegalArgumentException("Cell id does not match coordinates for " + cd.getId());
-                }
-                if (cd.getCellType() == CellType.WEIGHTED) {
-                    if (cd.getWeight() < 2 || cd.getWeight() > 100) {
-                        throw new IllegalArgumentException("Weighted cell must have integer weight between 2 and 100: " + cd.getId());
-                    }
-                }
-                if ((cd.getId().equals(startNode) || cd.getId().equals(targetNode)) && cd.getCellType() == CellType.WALL) {
-                    throw new IllegalArgumentException("Start or target node cannot be a WALL: " + cd.getId());
-                }
-            }
-        }
+        GridValidator.validatePathfindingRequest(request);
     }
 
     public PathfindingResponse execute(PathfindingRequest request) {
         validate(request);
-        long startTime = System.currentTimeMillis();
+        long startNanos = System.nanoTime();
 
         AlgorithmType algorithm = request.getAlgorithm();
         GridModel grid = request.getGrid();
@@ -228,7 +169,7 @@ public class PathfindingEngine {
             terrainPathCost = 0;
             visitedCount = 1;
 
-            double executionTimeMs = Math.max(0.01, (double) (System.currentTimeMillis() - startTime));
+            double executionTimeMs = Math.max(0.01, Math.round(((System.nanoTime() - startNanos) / 1_000_000.0) * 1000.0) / 1000.0);
             ExecutionMetrics metrics = new ExecutionMetrics(
                     1, 0, 0, 0, 1, 0, executionTimeMs, traceDeltas.size()
             );
@@ -561,7 +502,7 @@ public class PathfindingEngine {
             recordDelta.apply(noPathP);
         }
 
-        double executionTimeMs = Math.max(0.01, (double) (System.currentTimeMillis() - startTime));
+        double executionTimeMs = Math.max(0.01, Math.round(((System.nanoTime() - startNanos) / 1_000_000.0) * 1000.0) / 1000.0);
 
         ExecutionMetrics metrics = new ExecutionMetrics(
                 pathNodeCount,

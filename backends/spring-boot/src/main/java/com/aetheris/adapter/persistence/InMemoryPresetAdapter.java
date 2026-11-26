@@ -44,7 +44,9 @@ public class InMemoryPresetAdapter implements PresetRepositoryPort {
 
     @Override
     public List<GridPreset> findAll() {
-        return new ArrayList<>(storage.values());
+        List<GridPreset> list = new ArrayList<>(storage.values());
+        list.sort(Comparator.comparing(GridPreset::getId, Comparator.nullsLast(String::compareTo)));
+        return list;
     }
 
     @Override
@@ -53,9 +55,22 @@ public class InMemoryPresetAdapter implements PresetRepositoryPort {
     }
 
     @Override
+    public boolean existsById(String id) {
+        return id != null && storage.containsKey(id);
+    }
+
+    @Override
     public GridPreset save(GridPreset preset) {
+        if (preset.getId() == null || preset.getId().isBlank()) {
+            preset.setId("preset-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12));
+        }
         storage.put(preset.getId(), preset);
         return preset;
+    }
+
+    @Override
+    public boolean deleteById(String id) {
+        return id != null && storage.remove(id) != null;
     }
 
     @Override
@@ -66,5 +81,10 @@ public class InMemoryPresetAdapter implements PresetRepositoryPort {
     @Override
     public boolean isAvailable() {
         return true;
+    }
+
+    @Override
+    public boolean isDatabaseConnected() {
+        return false;
     }
 }

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "preset-bundle.json",
+  "title": "Aetheris Portable Preset Bundle",
+  "type": "object",
+  "required": ["format", "formatVersion", "presets"],
+  "properties": {
+    "contentHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA-256 hex digest of the canonical compact JSON object containing format, formatVersion, and presets"
+    },
+    "exportedAt": {
+      "type": "string",
+      "description": "ISO-8601 UTC export timestamp"
+    },
+    "format": {
+      "type": "string",
+      "const": "aetheris-preset-bundle"
+    },
+    "formatVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "presets": {
+      "type": "array",
+      "items": {
+        "$ref": "preset.schema.json"
+      }
+    }
+  },
+  "additionalProperties": false
+}

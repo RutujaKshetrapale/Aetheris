@@ -38,20 +38,29 @@ public class InMemoryPresetAdapter : IPresetRepository
         _storage[preset2.Id] = preset2;
     }
 
-    public Task<IEnumerable<GridPreset>> GetAllAsync() => Task.FromResult<IEnumerable<GridPreset>>(_storage.Values);
+    public Task<IEnumerable<GridPreset>> GetAllAsync() =>
+        Task.FromResult<IEnumerable<GridPreset>>(_storage.Values.OrderBy(p => p.Id, StringComparer.Ordinal).ToList());
 
-    public Task<GridPreset?> GetByIdAsync(string id) => Task.FromResult(_storage.TryGetValue(id, out var preset) ? preset : null);
+    public Task<GridPreset?> GetByIdAsync(string id) =>
+        Task.FromResult(_storage.TryGetValue(id, out var preset) ? preset : null);
+
+    public Task<bool> ExistsByIdAsync(string id) =>
+        Task.FromResult(!string.IsNullOrWhiteSpace(id) && _storage.ContainsKey(id));
 
     public Task<GridPreset> SaveAsync(GridPreset preset)
     {
         if (string.IsNullOrWhiteSpace(preset.Id))
         {
-            preset.Id = $"preset-{Guid.NewGuid():N}"[..15];
+            preset.Id = $"preset-{Guid.NewGuid():N}"[..19];
         }
         _storage[preset.Id] = preset;
         return Task.FromResult(preset);
     }
 
+    public Task<bool> DeleteByIdAsync(string id) =>
+        Task.FromResult(!string.IsNullOrWhiteSpace(id) && _storage.TryRemove(id, out _));
+
     public string AdapterType => "IN_MEMORY";
     public bool IsAvailable => true;
+    public bool IsDatabaseConnected => false;
 }

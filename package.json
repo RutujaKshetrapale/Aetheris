@@ -6,6 +6,7 @@
   "scripts": {
     "validate:contracts": "npm --prefix tests run validate:contracts",
     "test:fixtures": "npm --prefix tests run test:fixtures",
+    "test:conformance": "npm --prefix tests run test:conformance",
     "test:dotnet": "dotnet test backends/dotnet/Aetheris.sln",
     "test:springboot": "mvn test -f backends/spring-boot/pom.xml",
     "test:all": "npm run validate:contracts && npm run test:fixtures && npm run test:dotnet && npm run test:springboot"

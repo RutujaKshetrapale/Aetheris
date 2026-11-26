@@ -20,7 +20,7 @@
     },
     "instance": {
       "type": "string",
-      "format": "uri"
+      "format": "uri-reference"
     }
   },
   "additionalProperties": true

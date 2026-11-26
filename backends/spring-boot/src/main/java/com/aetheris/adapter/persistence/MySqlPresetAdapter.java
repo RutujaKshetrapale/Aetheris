@@ -32,8 +32,18 @@ public class MySqlPresetAdapter implements PresetRepositoryPort {
     }
 
     @Override
+    public boolean existsById(String id) {
+        return false;
+    }
+
+    @Override
     public GridPreset save(GridPreset preset) {
-        throw new UnsupportedOperationException("MySQL persistence adapter pending Phase 2 implementation.");
+        throw new UnsupportedOperationException("MySQL persistence adapter pending Phase 4 implementation.");
+    }
+
+    @Override
+    public boolean deleteById(String id) {
+        throw new UnsupportedOperationException("MySQL persistence adapter pending Phase 4 implementation.");
     }
 
     @Override
@@ -43,7 +53,11 @@ public class MySqlPresetAdapter implements PresetRepositoryPort {
 
     @Override
     public boolean isAvailable() {
-        // Architectural boundary: returns false in Phase 1 to trigger 503 RFC 9457 Problem Details
+        return false;
+    }
+
+    @Override
+    public boolean isDatabaseConnected() {
         return false;
     }
 }

@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "benchmark.schema.json",
+  "title": "Aetheris Benchmark Record",
+  "type": "object",
+  "required": [
+    "id",
+    "algorithm",
+    "heuristic",
+    "gridRows",
+    "gridCols",
+    "startNode",
+    "targetNode",
+    "pathFound",
+    "pathNodeCount",
+    "pathEdgeCount",
+    "algorithmPathCost",
+    "terrainPathCost",
+    "nodesVisited",
+    "maxFrontierSize",
+    "totalSteps",
+    "executionTimeMs",
+    "createdAt"
+  ],
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "name": {
+      "type": ["string", "null"]
+    },
+    "presetId": {
+      "type": ["string", "null"]
+    },
+    "algorithm": {
+      "type": "string",
+      "enum": ["BFS", "DFS", "DIJKSTRA", "ASTAR"]
+    },
+    "heuristic": {
+      "type": "string",
+      "enum": ["MANHATTAN"]
+    },
+    "gridRows": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "gridCols": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 200
+    },
+    "startNode": {
+      "type": "string",
+      "pattern": "^r[0-9]+c[0-9]+$"
+    },
+    "targetNode": {
+      "type": "string",
+      "pattern": "^r[0-9]+c[0-9]+$"
+    },
+    "pathFound": {
+      "type": "boolean"
+    },
+    "pathNodeCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pathEdgeCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "algorithmPathCost": {
+      "type": ["integer", "null"]
+    },
+    "terrainPathCost": {
+      "type": ["integer", "null"]
+    },
+    "nodesVisited": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxFrontierSize": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "totalSteps": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "executionTimeMs": {
+      "type": "number",
+      "minimum": 0.0
+    },
+    "createdAt": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
+}

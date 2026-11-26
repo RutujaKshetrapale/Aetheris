@@ -1,83 +1,189 @@
 # AETHERIS — The Art of Algorithmic Thinking
 
 **Architecture Baseline:** Revision 2.1.0  
-**Status:** Phase 1 Foundation Fully Established & Verified
+**Status:** Phase 1 Foundation, Phase 2 Algorithm Engines & Workbench, and Phase 3 Backend API & Application Layer Implemented
 
-AETHERIS is an algorithm visualization and exploration platform engineering showcase designed to demonstrate cross-platform deterministic pathfinding across multiple frontends (React, Angular), backends (Spring Boot, .NET 11), and persistence layers (MySQL, MongoDB).
+AETHERIS is a cross-platform deterministic pathfinding and algorithmic visualization platform featuring symmetric backend implementations in **Spring Boot 4.2.0 (Java 25)** and **.NET 11 (C# 13)**, paired with **React 19.3.1** (primary workbench) and **Angular 22.3.0** frontends.
 
 ## Monorepo Layout
 
-```
+```text
 Aetheris/
 ├── contracts/                  # Canonical OpenAPI 3.2.0 spec & JSON schemas (Draft 2020-12)
 │   ├── openapi.yaml            # Canonical OpenAPI 3.2.0 API contract
-│   ├── schemas/                # Shared JSON schemas (Draft 2020-12)
-│   └── fixtures/               # Deterministic pathfinding test fixtures (BFS, DFS, Dijkstra, A*, start==target, unreachable)
+│   ├── schemas/                # Shared JSON schemas (Draft 2020-12, including preset-bundle.json & benchmark.schema.json)
+│   └── fixtures/               # Deterministic pathfinding test fixtures
 ├── frontends/
-│   ├── react/                  # React 19.3.1 + TypeScript 6.0.3 + Vite 8.3.8 frontend
-│   └── angular/                # Angular 22.3.0 + TypeScript 6.0.3 frontend
+│   ├── react/                  # React 19.3.1 + TypeScript 6.0.3 + Vite 8.3.8 workbench (dev port 3100)
+│   └── angular/                # Angular 22.3.0 + TypeScript 6.0.3 frontend (dev port 4200)
 ├── backends/
-│   ├── spring-boot/            # Java 25 / 21 LTS + Spring Boot 4.2.0 GA backend
-│   └── dotnet/                 # C# 13 + .NET 11.0 / 9.0 Web API backend
+│   ├── spring-boot/            # Java 25 LTS + Spring Boot 4.2.0 GA REST API (port 8080)
+│   └── dotnet/                 # C# 13 + .NET 11.0.100 Minimal API (port 5000)
 ├── deployments/
-│   ├── docker/                 # Production Dockerfiles (Node 26, Temurin 25, .NET 11) & Nginx reverse proxy
-│   └── configurations/         # 8 mandatory deployment configuration profiles (.env & compose)
+│   ├── docker/                 # Production Dockerfiles & Nginx reverse proxy
+│   └── configurations/         # 8 deployment configuration profiles (.env & compose)
 ├── tests/
-│   ├── contract-validation/    # OpenAPI 3.2.0 & JSON Schema contract validator (Ajv 2020)
-│   └── fixture-runner/         # Cross-platform deterministic fixture generator & reversibility runner
-└── docs/                       # Architecture documentation and specifications
+│   ├── contract-validation/    # OpenAPI 3.2.0 & JSON Schema Draft 2020-12 validator (Ajv 2020)
+│   ├── fixture-runner/         # Cross-platform deterministic fixture & reversibility runner
+│   └── api-conformance/        # Cross-backend HTTP API & parity conformance test suite
+└── docs/                       # Architecture and API documentation
 ```
-
-## Mandatory 8 Configuration Profiles
-
-All 8 configurations consume the canonical `contracts/openapi.yaml` and support pure in-memory deterministic pathfinding independent of database connectivity:
-
-1. **React + Spring Boot + MySQL** (`deployments/configurations/docker-compose.react-springboot-mysql.yml`)
-2. **React + Spring Boot + MongoDB** (`deployments/configurations/docker-compose.react-springboot-mongodb.yml`)
-3. **React + .NET + MySQL** (`deployments/configurations/docker-compose.react-dotnet-mysql.yml`)
-4. **React + .NET + MongoDB** (`deployments/configurations/docker-compose.react-dotnet-mongodb.yml`)
-5. **Angular + Spring Boot + MySQL** (`deployments/configurations/docker-compose.angular-springboot-mysql.yml`)
-6. **Angular + Spring Boot + MongoDB** (`deployments/configurations/docker-compose.angular-springboot-mongodb.yml`)
-7. **Angular + .NET + MySQL** (`deployments/configurations/docker-compose.angular-dotnet-mysql.yml`)
-8. **Angular + .NET + MongoDB** (`deployments/configurations/docker-compose.angular-dotnet-mongodb.yml`)
 
 ## Core Architectural Invariants
 
-- **Canonical API Contract**: All 8 configurations implement and consume the single OpenAPI 3.2.0 contract (`contracts/openapi.yaml`) targeting JSON Schema Draft 2020-12.
-- **Canonical Endpoint**: `POST /api/v1/pathfinding/trace`. All error responses conform to RFC 9457 Problem Details (`application/problem+json`).
-- **RFC 9457 Problem Details**: All error responses return `application/problem+json`.
+- **Canonical API Contract**: Both backends implement `contracts/openapi.yaml` (OpenAPI 3.2.0) and validate against JSON Schema Draft 2020-12 (`contracts/schemas/`).
+- **Clean Backend Architecture**: `HTTP/API layer → Application services → Domain & pure algorithm engine → Persistence ports → Persistence adapters`.
+- **RFC 9457 Problem Details**: All error responses use `Content-Type: application/problem+json` with `type`, `title`, `status`, `detail`, and `instance`.
 - **Three Independent Grid Layers**:
-  1. `cellType`: Immutable structural role: `EMPTY` (weight 1), `WALL` (impassable), `START` (weight 0), `TARGET` (destination), `WEIGHTED` (integer weight 2–100).
-  2. `traversalState`: Dynamic algorithmic state: `UNVISITED`, `FRONTIER`, `ACTIVE`, `CLOSED`.
-  3. `inPath`: Orthogonal boolean ribbon indicating final path membership.
+  1. `cellType`: Immutable structural role (`EMPTY`, `WALL`, `START`, `TARGET`, `WEIGHTED` with integer weight 2–100).
+  2. `traversalState`: Dynamic exploration state (`UNVISITED`, `FRONTIER`, `ACTIVE`, `CLOSED`).
+  3. `inPath`: Orthogonal boolean flag indicating final path membership.
 - **Integer Destination Entry Cost Model**:
   $$\text{cost}(u \to v) = \text{weight}(v)$$
-  No floating-point or scaled-by-1000 cost representations.
-- **Four Cardinal Directions Only**: Strictly `UP → RIGHT → DOWN → LEFT` (no diagonal transitions).
-- **Deterministic Node Identifiers**: Strictly `r{row}c{col}` format (e.g. `r0c0`, `r4c4`).
-- **Trace Event Taxonomy**:
-  `INITIALIZE`, `ENQUEUE_FRONTIER`, `DEQUEUE_FRONTIER`, `EXAMINE_NODE`, `UPDATE_METRICS`, `CLOSE_NODE`, `DECREASE_KEY`, `PATH_FOUND`, `NO_PATH_FOUND`.
+  with `START` contributing `0` entry cost.
+- **Four Cardinal Directions Only**: Strictly `UP → RIGHT → DOWN → LEFT` (`r{row}c{col}` node IDs).
+- **Canonical Trace Action Taxonomy (8 Actions)**:
+  `INITIALIZE`, `ENQUEUE_FRONTIER`, `DEQUEUE_FRONTIER`, `EXAMINE_NODE`, `UPDATE_METRICS`, `CLOSE_NODE`, `PATH_FOUND`, `NO_PATH_FOUND`.
+  Heap relaxation uses `action: "ENQUEUE_FRONTIER"` with `operationSubtype: "DECREASE_KEY"`.
 - **Reversible Trace Deltas & Physical Heap Swap Trails**:
-  Every step captures complete `beforeState` and `afterState`, plus physical min-heap swap trails (`heapSwaps`) and keyframe snapshots every 50 steps ($K=50$) for $O(1)$ scrubbing and fast-forwarding.
-- **Deterministic Frontier & Tie-Breaking**:
-  - BFS: FIFO Queue.
-  - DFS: LIFO Stack with reverse push order (`LEFT, DOWN, RIGHT, UP`) resulting in examination order `UP, RIGHT, DOWN, LEFT`.
-  - Dijkstra: Indexed Min-Heap with comparator `(gCost, 0, enqueueSequence)`. No row/column coordinate tie-breaking.
-  - A*: Indexed Min-Heap with comparator `(fCost, hCost, enqueueSequence)` using integer Manhattan heuristic.
-  - Decrease-key operations strictly preserve original enqueue sequence.
-- **Database Decoupling**:
-  Core pathfinding computation runs purely in-memory and readiness probe (`GET /api/v1/health/ready`) returns `200 OK` regardless of database availability. In Phase 1, `InMemoryPresetAdapter` is fully operational; `MySqlPresetAdapter` and `MongoPresetAdapter` serve as architectural boundaries (`PENDING`), returning RFC 9457 503 Problem Details when accessed.
+  Every step records `beforeState`, `afterState`, physical `heapSwaps`, and 50-step `keyframes`.
+
+## API Endpoints
+
+### Health & Readiness
+- `GET /api/v1/health` — Overall system health (separate `status`, `engineStatus`, `persistenceEngine`, `persistenceStatus`, and honest `databaseConnected`).
+- `GET /api/v1/health/live` — Liveness probe (`200 OK`).
+- `GET /api/v1/health/ready` — Readiness probe (`200 OK` when the in-memory algorithm engine can serve requests, independent of database connectivity; `503` only if core engine is unready).
+
+### Pathfinding
+- `GET /api/v1/pathfinding/algorithms` — List supported algorithms (`BFS`, `DFS`, `DIJKSTRA`, `ASTAR`).
+- `POST /api/v1/pathfinding/trace` — Execute deterministic pathfinding and return full reversible trace deltas, keyframes, and metrics.
+
+### Presets
+- `GET /api/v1/presets` — List grid presets.
+- `GET /api/v1/presets/{id}` — Retrieve preset by ID (`404` if missing).
+- `POST /api/v1/presets` — Create a new preset (`201 Created`, `409 Conflict` on duplicate ID).
+- `PUT /api/v1/presets/{id}` — Update an existing preset (`200 OK`, `404` if missing).
+- `DELETE /api/v1/presets/{id}` — Delete a preset (`204 No Content`, `404` if missing).
+- `POST /api/v1/presets/export` — Export presets in canonical `contracts/schemas/preset-bundle.json` format (UTF-8 without BOM, LF line endings, lexicographically sorted keys, 2-space indent, SHA-256 `contentHash` over compact payload).
+- `POST /api/v1/presets/import` — Validate and import a portable preset bundle (`400` on malformed schema, `422` on incompatible version, hash mismatch, or invalid grid domain constraints).
+
+### Benchmarks
+- `POST /api/v1/benchmarks` — Execute an algorithm run using a monotonic clock and persist summary metrics (`BenchmarkRecord`, without storing individual trace deltas) (`201 Created`).
+- `GET /api/v1/benchmarks/{id}` — Retrieve a recorded benchmark by ID (`200 OK`, `404` if missing).
+
+## Persistence & Health Behavior
+
+- **Phase 3 Active Adapter (`IN_MEMORY`)**: Both backends run `InMemoryPresetAdapter` and `InMemoryBenchmarkAdapter` by default. Health reports:
+  - `persistenceEngine: "IN_MEMORY"`
+  - `persistenceStatus: "UP"`
+  - `databaseConnected: false` (never reports `true` without a real external database connection).
+- **Phase 4 Database Boundaries (`MYSQL`, `MONGODB`)**: MySQL and MongoDB persistence adapters are deferred to Phase 4. When configured (`AETHERIS_PERSISTENCE_ENGINE=MYSQL` or `Aetheris__Persistence__Engine=MYSQL`), persistence endpoints return **HTTP 503** (`application/problem+json`) without silently falling back to in-memory storage, while core pathfinding (`POST /api/v1/pathfinding/trace`) and `/api/v1/health/ready` remain `200 OK`.
+
+## Error Semantics (RFC 9457)
+
+All error responses return `Content-Type: application/problem+json`:
+- `400 Bad Request`: Malformed JSON, unknown enum/algorithm, missing required schema fields, or invalid ID syntax.
+- `422 Unprocessable Content`: Validly parsed JSON violating domain invariants (out-of-bounds coordinates, mismatched cell IDs, wall on start/target node, weighted cell weight outside `2..100`, incompatible bundle version, or bundle `contentHash` mismatch).
+- `404 Not Found`: Missing preset, benchmark, or endpoint.
+- `409 Conflict`: Duplicate preset ID on `POST /api/v1/presets`.
+- `503 Service Unavailable`: Configured persistence adapter is unavailable (or core engine unready on `/health/ready`).
+- `500 Internal Server Error`: Unexpected failure with sanitized detail (no stack traces, paths, or credentials).
+
+## Request & Response Examples
+
+### Trace Request (`POST /api/v1/pathfinding/trace`)
+```json
+{
+  "algorithm": "DIJKSTRA",
+  "grid": {
+    "rows": 3,
+    "cols": 3,
+    "startNode": "r0c0",
+    "targetNode": "r2c2",
+    "cells": [
+      { "id": "r1c1", "row": 1, "col": 1, "cellType": "WALL", "weight": 1 },
+      { "id": "r0c1", "row": 0, "col": 1, "cellType": "WEIGHTED", "weight": 5 }
+    ]
+  }
+}
+```
+
+### Benchmark Request (`POST /api/v1/benchmarks`)
+```json
+{
+  "name": "Dijkstra 3x3 Check",
+  "algorithm": "DIJKSTRA",
+  "grid": {
+    "rows": 3,
+    "cols": 3,
+    "startNode": "r0c0",
+    "targetNode": "r2c2",
+    "cells": []
+  }
+}
+```
+
+## Local Startup Commands
+
+### Spring Boot 4.2.0 (Java 25, port 8080)
+```bash
+mvn spring-boot:run -f backends/spring-boot/pom.xml
+```
+Optional env vars: `SERVER_PORT=8080`, `AETHERIS_PERSISTENCE_ENGINE=IN_MEMORY`, `AETHERIS_CORS_ALLOWED_ORIGINS=http://localhost:3100`.
+
+### .NET 11 (C# 13, port 5000)
+```bash
+dotnet run --project backends/dotnet/Aetheris.Api/Aetheris.Api.csproj --urls http://localhost:5000
+```
+Optional env vars: `Aetheris__Persistence__Engine=IN_MEMORY`, `AETHERIS_CORS_ALLOWED_ORIGINS=http://localhost:3100`.
+
+### React Workbench (port 3100)
+```bash
+npm --prefix frontends/react run dev
+```
+Configure backend target via `frontends/react/.env` (see `frontends/react/.env.example`):
+- `VITE_API_BASE_URL=http://localhost:8080` (or `http://localhost:5000`) for direct CORS requests, OR
+- `VITE_API_URL=http://localhost:8080` (or `http://localhost:5000`) for Vite `/api` dev proxy.
+The React UI uses the configured backend by default without silent fallback; an explicit **Offline Local Engine (Dev)** toggle is available for offline development and clearly labeled in the UI.
+
+### Angular Frontend (port 4200)
+```bash
+npm --prefix frontends/angular run start
+```
+
+## Test Commands
+
+```bash
+# 1. OpenAPI 3.2.0 & JSON Schema Draft 2020-12 contract validation
+npm run validate:contracts
+
+# 2. Deterministic fixture & bidirectional reversibility tests
+npm run test:fixtures
+
+# 3. Spring Boot unit & HTTP integration tests
+mvn test -f backends/spring-boot/pom.xml
+
+# 4. .NET 11 unit & HTTP integration tests
+dotnet test backends/dotnet/Aetheris.sln
+
+# 5. Live cross-backend HTTP conformance suite (with both backends running on 8080 and 5000)
+npm run test:conformance
+
+# 6. Production frontend builds
+npm --prefix frontends/react run build
+npm --prefix frontends/angular run build
+```
 
 ## Verified Dependency Matrix
 
-| Component | Target Version | Selected GA Version | Role / Environment | Status |
-|-----------|----------------|---------------------|--------------------|--------|
-| Specification | OpenAPI 3.2.0 | 3.2.0 | Canonical Contract (`contracts/openapi.yaml`) | Verified & Conforming (0 errors) |
-| Schemas | JSON Schema Draft 2020-12 | Draft 2020-12 | Canonical Shared Schemas (10 schemas) | Verified & Compiled (0 errors) |
-| Spring Boot Backend | Spring Boot 4.2.0 / Java 25 LTS | Spring Boot 4.2.0 GA / OpenJDK 25.0.5.1 LTS | `backends/spring-boot/` REST API | Compiled, Packaged & Tested on Java 25 (6/6 passing) |
-| .NET Backend | .NET SDK 11.0.100 | .NET SDK 11.0.100 (net11.0) | `backends/dotnet/` Minimal API | Built, Tested & Published on .NET 11 (6/6 passing) |
-| React Frontend | React 19.3.1 | React 19.3.1 GA / Vite 8.3.8 / TS 6.0.3 | `frontends/react/` Web Application | Clean Production Build on Node 26 (1.40s) |
-| Angular Frontend | Angular 22.x / TS 6.0.x | Angular 22.3.0 GA / TS 6.0.3 GA | `frontends/angular/` Web Application | Clean Production Build on Node 26 (7.06s) |
-| MySQL Database | MySQL 9.7 LTS | `mysql:9.7` | Container Profiles (MySQL 9.7 LTS) | Configured in 4 Compose Profiles (503 boundary stub) |
-| MongoDB Database | MongoDB 9.0.x | `mongo:9.0` | Container Profiles (MongoDB 9.0 GA) | Configured in 4 Compose Profiles (503 boundary stub) |
-| Toolchain / Node.js | Node.js 26.x | Node.js 26.13.1 GA | Tooling & Angular / React Build Runtime | Verified Native Host Build |
+| Component | Version | Role / Environment |
+|-----------|---------|--------------------|
+| OpenAPI Specification | `3.2.0` | Canonical API Contract (`contracts/openapi.yaml`) |
+| JSON Schema | `Draft 2020-12` | Shared Schemas (`contracts/schemas/*.json`) |
+| Spring Boot / Java | `4.2.0` / `OpenJDK 25.0.5.1 LTS` | `backends/spring-boot/` REST API (`8080`) |
+| .NET / C# | `.NET 11.0.100` / `C# 13` | `backends/dotnet/` Minimal API (`5000`) |
+| React / Vite / TS | `19.3.1` / `8.3.8` / `6.0.3` | `frontends/react/` Workbench (`3100`) |
+| Angular / TS | `22.3.0` / `6.0.3` | `frontends/angular/` Client (`4200`) |
+| Node.js | `26.13.1` | Contract/Conformance/Frontend Build Runtime |
+| MySQL / MongoDB | `9.7` / `9.0` (Deferred to Phase 4) | 503 Architectural Boundary Stubs in Phase 3 |

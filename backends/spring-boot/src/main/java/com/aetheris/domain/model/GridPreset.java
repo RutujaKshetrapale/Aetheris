@@ -1,12 +1,19 @@
 package com.aetheris.domain.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import java.time.Instant;
 
 public class GridPreset {
     private String id;
     private String name;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private String description;
+
     private GridModel grid;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private String createdAt;
 
     public GridPreset() {
@@ -14,11 +21,15 @@ public class GridPreset {
     }
 
     public GridPreset(String id, String name, String description, GridModel grid) {
+        this(id, name, description, grid, Instant.now().toString());
+    }
+
+    public GridPreset(String id, String name, String description, GridModel grid, String createdAt) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.grid = grid;
-        this.createdAt = Instant.now().toString();
+        this.createdAt = createdAt != null ? createdAt : Instant.now().toString();
     }
 
     public String getId() { return id; }

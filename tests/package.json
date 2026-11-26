@@ -5,7 +5,8 @@
   "description": "AETHERIS Contract and Fixture Test Suite",
   "scripts": {
     "validate:contracts": "node contract-validation/validate.js",
-    "test:fixtures": "node fixture-runner/run-fixtures.js"
+    "test:fixtures": "node fixture-runner/run-fixtures.js",
+    "test:conformance": "node api-conformance/run-conformance.js"
   },
   "dependencies": {
     "ajv": "8.17.1",

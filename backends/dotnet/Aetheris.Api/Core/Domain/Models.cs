@@ -51,9 +51,13 @@ public enum HeuristicType
 
 public class CellDefinition
 {
+    [JsonRequired]
     public string Id { get; set; } = string.Empty;
+    [JsonRequired]
     public int Row { get; set; }
+    [JsonRequired]
     public int Col { get; set; }
+    [JsonRequired]
     public CellType CellType { get; set; } = CellType.EMPTY;
     public int Weight { get; set; } = 1;
 
@@ -100,9 +104,13 @@ public class CellState
 
 public class GridModel
 {
+    [JsonRequired]
     public int Rows { get; set; }
+    [JsonRequired]
     public int Cols { get; set; }
+    [JsonRequired]
     public string StartNode { get; set; } = string.Empty;
+    [JsonRequired]
     public string TargetNode { get; set; } = string.Empty;
     public List<CellDefinition> Cells { get; set; } = new();
 
@@ -212,7 +220,9 @@ public class ExecutionMetrics
 
 public class PathfindingRequest
 {
+    [JsonRequired]
     public AlgorithmType Algorithm { get; set; }
+    [JsonRequired]
     public GridModel Grid { get; set; } = new();
     public HeuristicType Heuristic { get; set; } = HeuristicType.MANHATTAN;
 
@@ -267,20 +277,93 @@ public class GridPreset
 {
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
+
     public GridModel Grid { get; set; } = new();
-    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
+
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 
     public GridPreset() { }
 
-    public GridPreset(string id, string name, string description, GridModel grid)
+    public GridPreset(string id, string name, string? description, GridModel grid, string? createdAt = null)
     {
         Id = id;
         Name = name;
         Description = description;
         Grid = grid;
-        CreatedAt = DateTime.UtcNow.ToString("o");
+        CreatedAt = createdAt ?? DateTime.UtcNow.ToString("o");
     }
+}
+
+public class SavePresetRequest
+{
+    public string? Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public GridModel? Grid { get; set; }
+}
+
+public class ExportPresetsRequest
+{
+    public List<string>? PresetIds { get; set; }
+}
+
+public class PresetBundle
+{
+    public string Format { get; set; } = "aetheris-preset-bundle";
+    public string FormatVersion { get; set; } = "1.0.0";
+    public string? ExportedAt { get; set; }
+    public string? ContentHash { get; set; }
+    public List<GridPreset> Presets { get; set; } = new();
+}
+
+public class ImportPresetsResponse
+{
+    public int ImportedCount { get; set; }
+    public List<GridPreset> Presets { get; set; } = new();
+
+    public ImportPresetsResponse() { }
+
+    public ImportPresetsResponse(int importedCount, List<GridPreset> presets)
+    {
+        ImportedCount = importedCount;
+        Presets = presets;
+    }
+}
+
+public class BenchmarkRequest
+{
+    public string? Name { get; set; }
+    public string? PresetId { get; set; }
+    public AlgorithmType? Algorithm { get; set; }
+    public HeuristicType? Heuristic { get; set; } = HeuristicType.MANHATTAN;
+    public GridModel? Grid { get; set; }
+}
+
+public class BenchmarkRecord
+{
+    public string Id { get; set; } = string.Empty;
+    public string? Name { get; set; }
+    public string? PresetId { get; set; }
+    public AlgorithmType Algorithm { get; set; }
+    public HeuristicType Heuristic { get; set; }
+    public int GridRows { get; set; }
+    public int GridCols { get; set; }
+    public string StartNode { get; set; } = string.Empty;
+    public string TargetNode { get; set; } = string.Empty;
+    public bool PathFound { get; set; }
+    public int PathNodeCount { get; set; }
+    public int PathEdgeCount { get; set; }
+    public int? AlgorithmPathCost { get; set; }
+    public int? TerrainPathCost { get; set; }
+    public int NodesVisited { get; set; }
+    public int MaxFrontierSize { get; set; }
+    public int TotalSteps { get; set; }
+    public double ExecutionTimeMs { get; set; }
+    public string CreatedAt { get; set; } = DateTime.UtcNow.ToString("o");
 }
 
 public class HealthStatus
@@ -288,10 +371,10 @@ public class HealthStatus
     public string Status { get; set; } = "UP";
     public string EngineStatus { get; set; } = "UP";
     public string PersistenceStatus { get; set; } = "UP";
-    public string Platform { get; set; } = ".NET 9.0 (C# 13)";
+    public string Platform { get; set; } = ".NET 11.0 (C# 13)";
     public string Version { get; set; } = "2.1.0";
     public string PersistenceEngine { get; set; } = "IN_MEMORY";
-    public bool DatabaseConnected { get; set; } = true;
+    public bool DatabaseConnected { get; set; } = false;
 
     public HealthStatus() { }
 
@@ -323,14 +406,18 @@ public class ProblemDetails
     public string? Detail { get; set; }
     public string? Instance { get; set; }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, object>? Errors { get; set; }
+
     public ProblemDetails() { }
 
-    public ProblemDetails(string type, string title, int status, string? detail, string? instance)
+    public ProblemDetails(string type, string title, int status, string? detail, string? instance, Dictionary<string, object>? errors = null)
     {
         Type = type;
         Title = title;
         Status = status;
         Detail = detail;
         Instance = instance;
+        Errors = errors;
     }
 }

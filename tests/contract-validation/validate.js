@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('yaml');
 const Ajv2020 = require('ajv/dist/2020');
+const addFormats = require('ajv-formats');
 
 console.log('=== AETHERIS CONTRACT & SCHEMA VALIDATOR ===\n');
 
@@ -38,7 +39,11 @@ try {
     '/api/v1/pathfinding/algorithms',
     '/api/v1/pathfinding/trace',
     '/api/v1/presets',
-    '/api/v1/presets/{id}'
+    '/api/v1/presets/{id}',
+    '/api/v1/presets/export',
+    '/api/v1/presets/import',
+    '/api/v1/benchmarks',
+    '/api/v1/benchmarks/{id}'
   ];
 
   for (const p of requiredPaths) {
@@ -68,6 +73,12 @@ try {
     'PathfindingResponse',
     'AlgorithmInfo',
     'GridPreset',
+    'SavePresetRequest',
+    'ExportPresetsRequest',
+    'PresetBundle',
+    'ImportPresetsResponse',
+    'BenchmarkRequest',
+    'BenchmarkRecord',
     'HealthStatus',
     'ProbeStatus',
     'ProblemDetails'
@@ -94,6 +105,7 @@ const schemasDir = path.resolve(__dirname, '../../contracts/schemas');
 const schemaFiles = fs.readdirSync(schemasDir).filter(f => f.endsWith('.json'));
 
 const ajv = new Ajv2020({ strict: false, allErrors: true });
+addFormats(ajv);
 
 // First pass: add all schemas to Ajv
 const loadedSchemas = {};

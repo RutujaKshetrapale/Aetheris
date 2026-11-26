@@ -112,8 +112,62 @@ export interface AlgorithmInfo {
 export interface GridPreset {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   grid: GridModel;
+  createdAt?: string;
+}
+
+export interface SavePresetRequest {
+  id?: string;
+  name: string;
+  description?: string;
+  grid: GridModel;
+}
+
+export interface ExportPresetsRequest {
+  presetIds?: string[];
+}
+
+export interface PresetBundle {
+  format: 'aetheris-preset-bundle';
+  formatVersion: '1.0.0';
+  exportedAt?: string;
+  contentHash?: string;
+  presets: GridPreset[];
+}
+
+export interface ImportPresetsResponse {
+  importedCount: number;
+  presets: GridPreset[];
+}
+
+export interface BenchmarkRequest {
+  name?: string;
+  presetId?: string;
+  algorithm: AlgorithmType;
+  heuristic?: HeuristicType;
+  grid?: GridModel;
+}
+
+export interface BenchmarkRecord {
+  id: string;
+  name?: string | null;
+  presetId?: string | null;
+  algorithm: AlgorithmType;
+  heuristic: HeuristicType;
+  gridRows: number;
+  gridCols: number;
+  startNode: string;
+  targetNode: string;
+  pathFound: boolean;
+  pathNodeCount: number;
+  pathEdgeCount: number;
+  algorithmPathCost: number | null;
+  terrainPathCost: number | null;
+  nodesVisited: number;
+  maxFrontierSize: number;
+  totalSteps: number;
+  executionTimeMs: number;
   createdAt: string;
 }
 
@@ -132,9 +186,10 @@ export interface ProbeStatus {
 }
 
 export interface ProblemDetails {
-  type: string;
+  type?: string;
   title: string;
   status: number;
   detail?: string;
   instance?: string;
+  errors?: Record<string, unknown>;
 }

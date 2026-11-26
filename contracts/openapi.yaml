@@ -96,7 +96,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/PathfindingResponse'
         '400':
-          description: Invalid request parameters or malformed grid
+          description: Malformed JSON, invalid algorithm, or invalid request schema
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Validly parsed request violating domain coordinates, weights, or wall placement rules
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '500':
+          description: Unexpected server error
           content:
             application/problem+json:
               schema:
@@ -142,7 +154,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/GridPreset'
         '400':
-          description: Malformed preset
+          description: Malformed preset request or invalid identifier
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '409':
+          description: Preset with the specified ID already exists
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Preset grid violates domain coordinates, weights, or wall placement rules
           content:
             application/problem+json:
               schema:
@@ -173,8 +197,252 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GridPreset'
+        '400':
+          description: Invalid preset identifier
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
         '404':
           description: Preset not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Persistence layer unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    put:
+      summary: Update Existing Grid Preset
+      operationId: updatePreset
+      tags:
+        - Presets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SavePresetRequest'
+      responses:
+        '200':
+          description: Preset updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GridPreset'
+        '400':
+          description: Malformed preset update request or mismatched ID
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Preset not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Preset grid violates domain coordinates, weights, or wall placement rules
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Persistence layer unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+    delete:
+      summary: Delete Grid Preset
+      operationId: deletePreset
+      tags:
+        - Presets
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Preset deleted successfully
+        '400':
+          description: Invalid preset identifier
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Preset not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Persistence layer unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/presets/export:
+    post:
+      summary: Export Presets in Canonical Portable Bundle Format
+      operationId: exportPresets
+      tags:
+        - Presets
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExportPresetsRequest'
+      responses:
+        '200':
+          description: Portable preset bundle serialized canonically (UTF-8, LF, sorted keys, 2-space indent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresetBundle'
+        '400':
+          description: Malformed export request
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: One or more requested preset IDs were not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Persistence layer unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/presets/import:
+    post:
+      summary: Import Presets from Canonical Portable Bundle
+      operationId: importPresets
+      tags:
+        - Presets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresetBundle'
+      responses:
+        '200':
+          description: Presets validated and imported successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportPresetsResponse'
+        '400':
+          description: Malformed JSON or bundle schema violation
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Incompatible bundle format/version, hash mismatch, or invalid grid domain constraints
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Persistence layer unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/benchmarks:
+    post:
+      summary: Execute Algorithm Benchmark and Persist Summary Record
+      operationId: runBenchmark
+      tags:
+        - Benchmarks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BenchmarkRequest'
+      responses:
+        '201':
+          description: Benchmark executed and recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchmarkRecord'
+        '400':
+          description: Malformed benchmark request or invalid schema
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Referenced preset ID not found
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '422':
+          description: Benchmark grid violates domain coordinates, weights, or wall placement rules
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '503':
+          description: Persistence layer unavailable
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /api/v1/benchmarks/{id}:
+    get:
+      summary: Retrieve Benchmark Record by ID
+      operationId: getBenchmarkById
+      tags:
+        - Benchmarks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Benchmark record found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BenchmarkRecord'
+        '400':
+          description: Invalid benchmark identifier
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+        '404':
+          description: Benchmark record not found
           content:
             application/problem+json:
               schema:
@@ -560,12 +828,157 @@ components:
         - name
         - grid
       properties:
+        id:
+          type: string
         name:
           type: string
         description:
           type: string
         grid:
           $ref: '#/components/schemas/GridModel'
+
+    ExportPresetsRequest:
+      type: object
+      properties:
+        presetIds:
+          type: array
+          items:
+            type: string
+
+    PresetBundle:
+      type: object
+      required:
+        - format
+        - formatVersion
+        - presets
+      properties:
+        contentHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+        exportedAt:
+          type: string
+          format: date-time
+        format:
+          type: string
+          enum:
+            - aetheris-preset-bundle
+        formatVersion:
+          type: string
+          enum:
+            - '1.0.0'
+        presets:
+          type: array
+          items:
+            $ref: '#/components/schemas/GridPreset'
+
+    ImportPresetsResponse:
+      type: object
+      required:
+        - importedCount
+        - presets
+      properties:
+        importedCount:
+          type: integer
+          minimum: 0
+        presets:
+          type: array
+          items:
+            $ref: '#/components/schemas/GridPreset'
+
+    BenchmarkRequest:
+      type: object
+      required:
+        - algorithm
+      properties:
+        name:
+          type: string
+        presetId:
+          type: string
+        algorithm:
+          $ref: '#/components/schemas/AlgorithmType'
+        heuristic:
+          $ref: '#/components/schemas/HeuristicType'
+          default: MANHATTAN
+        grid:
+          $ref: '#/components/schemas/GridModel'
+
+    BenchmarkRecord:
+      type: object
+      required:
+        - id
+        - algorithm
+        - heuristic
+        - gridRows
+        - gridCols
+        - startNode
+        - targetNode
+        - pathFound
+        - pathNodeCount
+        - pathEdgeCount
+        - algorithmPathCost
+        - terrainPathCost
+        - nodesVisited
+        - maxFrontierSize
+        - totalSteps
+        - executionTimeMs
+        - createdAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          nullable: true
+        presetId:
+          type: string
+          nullable: true
+        algorithm:
+          $ref: '#/components/schemas/AlgorithmType'
+        heuristic:
+          $ref: '#/components/schemas/HeuristicType'
+        gridRows:
+          type: integer
+          minimum: 1
+          maximum: 200
+        gridCols:
+          type: integer
+          minimum: 1
+          maximum: 200
+        startNode:
+          type: string
+          pattern: '^r[0-9]+c[0-9]+$'
+        targetNode:
+          type: string
+          pattern: '^r[0-9]+c[0-9]+$'
+        pathFound:
+          type: boolean
+        pathNodeCount:
+          type: integer
+          minimum: 0
+        pathEdgeCount:
+          type: integer
+          minimum: 0
+        algorithmPathCost:
+          type: integer
+          nullable: true
+        terrainPathCost:
+          type: integer
+          nullable: true
+        nodesVisited:
+          type: integer
+          minimum: 0
+        maxFrontierSize:
+          type: integer
+          minimum: 0
+        totalSteps:
+          type: integer
+          minimum: 0
+        executionTimeMs:
+          type: number
+          format: double
+          minimum: 0.0
+        createdAt:
+          type: string
+          format: date-time
 
     HealthStatus:
       type: object
@@ -589,7 +1002,7 @@ components:
           example: 'UP'
         platform:
           type: string
-          example: 'Spring Boot (Java 21)'
+          example: 'Spring Boot 4.2.0 (Java 25)'
         version:
           type: string
           example: '2.1.0'
@@ -601,6 +1014,8 @@ components:
             - IN_MEMORY
         databaseConnected:
           type: boolean
+          example: false
+          description: True only when an external MySQL or MongoDB connection is active; false for IN_MEMORY or unimplemented stubs.
 
     ProbeStatus:
       type: object
@@ -632,5 +1047,5 @@ components:
           example: 'The requested preset was not found.'
         instance:
           type: string
-          format: uri
+          format: uri-reference
           example: '/api/v1/presets/preset-123'
