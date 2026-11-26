@@ -14,13 +14,13 @@ Aetheris/
 │   ├── schemas/                # Shared JSON schemas (Draft 2020-12)
 │   └── fixtures/               # Deterministic pathfinding test fixtures (BFS, DFS, Dijkstra, A*, start==target, unreachable)
 ├── frontends/
-│   ├── react/                  # React 19 + TypeScript 5.7 + Vite 6 frontend
-│   └── angular/                # Angular 19 + TypeScript frontend
+│   ├── react/                  # React 19.3.1 + TypeScript 6.0.3 + Vite 8.3.8 frontend
+│   └── angular/                # Angular 22.3.0 + TypeScript 6.0.3 frontend
 ├── backends/
-│   ├── spring-boot/            # Java 21 LTS + Spring Boot 3.2.5 backend
-│   └── dotnet/                 # C# 13 + .NET 9.0 Web API backend
+│   ├── spring-boot/            # Java 25 / 21 LTS + Spring Boot 4.2.0 GA backend
+│   └── dotnet/                 # C# 13 + .NET 11.0 / 9.0 Web API backend
 ├── deployments/
-│   ├── docker/                 # Production Dockerfiles & Nginx reverse proxy
+│   ├── docker/                 # Production Dockerfiles (Node 26, Temurin 25, .NET 11) & Nginx reverse proxy
 │   └── configurations/         # 8 mandatory deployment configuration profiles (.env & compose)
 ├── tests/
 │   ├── contract-validation/    # OpenAPI 3.2.0 & JSON Schema contract validator (Ajv 2020)
@@ -44,7 +44,7 @@ All 8 configurations consume the canonical `contracts/openapi.yaml` and support 
 ## Core Architectural Invariants
 
 - **Canonical API Contract**: All 8 configurations implement and consume the single OpenAPI 3.2.0 contract (`contracts/openapi.yaml`) targeting JSON Schema Draft 2020-12.
-- **Canonical Endpoint**: `POST /api/v1/pathfinding/trace` (with `/find` preserved as a backward-compatible alias).
+- **Canonical Endpoint**: `POST /api/v1/pathfinding/trace`. All error responses conform to RFC 9457 Problem Details (`application/problem+json`).
 - **RFC 9457 Problem Details**: All error responses return `application/problem+json`.
 - **Three Independent Grid Layers**:
   1. `cellType`: Immutable structural role: `EMPTY` (weight 1), `WALL` (impassable), `START` (weight 0), `TARGET` (destination), `WEIGHTED` (integer weight 2–100).
@@ -70,15 +70,14 @@ All 8 configurations consume the canonical `contracts/openapi.yaml` and support 
 
 ## Verified Dependency Matrix
 
-| Component | Framework / Tool | Verified GA Version | Status |
-|-----------|------------------|---------------------|--------|
-| Specification | OpenAPI | 3.2.0 | Canonical Contract |
-| Schemas | JSON Schema | Draft 2020-12 | Canonical Schemas |
-| Node.js Runner | Node.js / npm | v24.14.1 / 11.11.0 | Installed & Tested |
-| Test Validation | Ajv | 8.17.1 (Draft 2020-12) | Installed & Tested |
-| Spring Boot Backend | Java / Spring Boot | Java 21 LTS / 3.2.5 | Compiled & Tested (6/6 passing) |
-| .NET Backend | .NET SDK / C# | .NET 9.0.311 / C# 13 | Compiled & Tested (6/6 passing) |
-| React Frontend | React / Vite | React 19.0.0 / Vite 6.4.6 | Installed & Built Cleanly |
-| Angular Frontend | Angular | Angular 19.2.0 | Scaffolded & Contract-Aligned |
-| MySQL | Oracle MySQL | 8.4 LTS | Container Profile Configured |
-| MongoDB | MongoDB Server | 8.0 | Container Profile Configured |
+| Component | Target Version | Selected GA Version | Role / Environment | Status |
+|-----------|----------------|---------------------|--------------------|--------|
+| Specification | OpenAPI 3.2.0 | 3.2.0 | Canonical Contract (`contracts/openapi.yaml`) | Verified & Conforming |
+| Schemas | JSON Schema Draft 2020-12 | Draft 2020-12 | Canonical Shared Schemas (10 schemas) | Verified & Compiled |
+| Spring Boot Backend | Spring Boot 4.2.0 / Java 25 LTS | Spring Boot 4.2.0 GA / Java 21 LTS host (Java 25 container) | `backends/spring-boot/` REST API | Compiled, Packaged & Tested (6/6 passing) |
+| .NET Backend | .NET SDK 11.0.100 | .NET 9.0.311 host (.NET 11 container) | `backends/dotnet/` Minimal API | Compiled & Tested (6/6 passing) |
+| React Frontend | React 19.3.1 | React 19.3.1 GA / Vite 8.3.8 / TS 6.0.3 | `frontends/react/` Web Application | Installed & Built Cleanly (1.88s) |
+| Angular Frontend | Angular 22.x / TS 6.0.x | Angular 22.3.0 GA / TS 6.0.3 GA | `frontends/angular/` Web Application | Workspace Configured & Typed |
+| MySQL Database | MySQL 9.7 LTS | `mysql:9.7` | Container Profiles (8.4 upgraded to 9.7) | Configured in 4 Compose Profiles |
+| MongoDB Database | MongoDB 9.0.x | `mongo:9.0` | Container Profiles (7.0 upgraded to 9.0) | Configured in 4 Compose Profiles |
+| Toolchain / Node.js | Node.js 26.x | `node:26-alpine` (v24.14 host) | Tooling & Container Base Image | Verified & Validated |

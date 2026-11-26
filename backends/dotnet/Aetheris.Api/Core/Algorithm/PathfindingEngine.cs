@@ -235,12 +235,12 @@ public class PathfindingEngine
                     if (queue.Contains(nId) || closedSet.Contains(nId)) continue;
 
                     int newGCost = currGCost + 1;
-                    RecordDelta(TraceAction.ENQUEUE_FRONTIER, nId, queue.Count + 1,
-                        traversalState: TraversalState.FRONTIER,
-                        gCost: newGCost, fCost: newGCost, parentId: currId, setParent: true);
-
                     queue.Push(nId);
                     maxFrontierSize = Math.Max(maxFrontierSize, queue.Count);
+
+                    RecordDelta(TraceAction.ENQUEUE_FRONTIER, nId, queue.Count,
+                        traversalState: TraversalState.FRONTIER,
+                        gCost: newGCost, fCost: newGCost, parentId: currId, setParent: true);
                 }
 
                 closedSet.Add(currId);
@@ -296,12 +296,12 @@ public class PathfindingEngine
                     if (stack.Contains(nId) || closedSet.Contains(nId)) continue;
 
                     int newGCost = currGCost + 1;
-                    RecordDelta(TraceAction.ENQUEUE_FRONTIER, nId, stack.Count + 1,
-                        traversalState: TraversalState.FRONTIER,
-                        gCost: newGCost, fCost: newGCost, parentId: currId, setParent: true);
-
                     stack.Push(nId);
                     maxFrontierSize = Math.Max(maxFrontierSize, stack.Count);
+
+                    RecordDelta(TraceAction.ENQUEUE_FRONTIER, nId, stack.Count,
+                        traversalState: TraversalState.FRONTIER,
+                        gCost: newGCost, fCost: newGCost, parentId: currId, setParent: true);
                 }
 
                 closedSet.Add(currId);
@@ -319,14 +319,14 @@ public class PathfindingEngine
             int startH = isAStar ? HeuristicCalculator.Calculate(request.Heuristic, startR, startC, targetR, targetC) : 0;
             int startF = startH;
 
+            heap.Push(new IndexedMinHeapFrontier.HeapNode(startNode, startR, startC, 0, startH, startF, enqueueSeq++));
+            heap.DrainSwaps();
+            maxFrontierSize = Math.Max(maxFrontierSize, heap.Count);
+
             RecordDelta(TraceAction.INITIALIZE, startNode, 1,
                 traversalState: TraversalState.FRONTIER,
                 gCost: 0, hCost: startH, fCost: startF, parentId: null, setParent: true,
                 details: "Initialize start node in indexed min-heap");
-
-            heap.Push(new IndexedMinHeapFrontier.HeapNode(startNode, startR, startC, 0, startH, startF, enqueueSeq++));
-            heap.DrainSwaps();
-            maxFrontierSize = Math.Max(maxFrontierSize, heap.Count);
 
             while (!heap.IsEmpty)
             {

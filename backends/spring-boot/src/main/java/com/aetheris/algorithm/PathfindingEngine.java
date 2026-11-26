@@ -238,16 +238,16 @@ public class PathfindingEngine {
                     if (queue.contains(nId) || closedSet.contains(nId)) continue;
 
                     int newGCost = currGCost + 1;
-                    DeltaParams enqP = new DeltaParams(TraceAction.ENQUEUE_FRONTIER, nId, queue.size() + 1);
+                    queue.push(nId);
+                    maxFrontierSize = Math.max(maxFrontierSize, queue.size());
+
+                    DeltaParams enqP = new DeltaParams(TraceAction.ENQUEUE_FRONTIER, nId, queue.size());
                     enqP.traversalState = TraversalState.FRONTIER;
                     enqP.gCost = newGCost;
                     enqP.fCost = newGCost;
                     enqP.parentId = currId;
                     enqP.parentIdSet = true;
                     recordDelta.apply(enqP);
-
-                    queue.push(nId);
-                    maxFrontierSize = Math.max(maxFrontierSize, queue.size());
                 }
 
                 closedSet.add(currId);
@@ -312,16 +312,16 @@ public class PathfindingEngine {
                     if (stack.contains(nId) || closedSet.contains(nId)) continue;
 
                     int newGCost = currGCost + 1;
-                    DeltaParams enqP = new DeltaParams(TraceAction.ENQUEUE_FRONTIER, nId, stack.size() + 1);
+                    stack.push(nId);
+                    maxFrontierSize = Math.max(maxFrontierSize, stack.size());
+
+                    DeltaParams enqP = new DeltaParams(TraceAction.ENQUEUE_FRONTIER, nId, stack.size());
                     enqP.traversalState = TraversalState.FRONTIER;
                     enqP.gCost = newGCost;
                     enqP.fCost = newGCost;
                     enqP.parentId = currId;
                     enqP.parentIdSet = true;
                     recordDelta.apply(enqP);
-
-                    stack.push(nId);
-                    maxFrontierSize = Math.max(maxFrontierSize, stack.size());
                 }
 
                 closedSet.add(currId);
@@ -343,6 +343,10 @@ public class PathfindingEngine {
             int startH = isAStar ? HeuristicCalculator.calculate(request.getHeuristic(), startPos[0], startPos[1], targetPos[0], targetPos[1]) : 0;
             int startF = startH;
 
+            heap.push(new IndexedMinHeapFrontier.HeapNode(startNode, startPos[0], startPos[1], 0, startH, startF, enqueueSeq++));
+            heap.drainSwaps();
+            maxFrontierSize = Math.max(maxFrontierSize, heap.size());
+
             // INITIALIZE start
             DeltaParams initP = new DeltaParams(TraceAction.INITIALIZE, startNode, 1);
             initP.traversalState = TraversalState.FRONTIER;
@@ -353,10 +357,6 @@ public class PathfindingEngine {
             initP.parentIdSet = true;
             initP.details = "Initialize start node in indexed min-heap";
             recordDelta.apply(initP);
-
-            heap.push(new IndexedMinHeapFrontier.HeapNode(startNode, startPos[0], startPos[1], 0, startH, startF, enqueueSeq++));
-            heap.drainSwaps();
-            maxFrontierSize = Math.max(maxFrontierSize, heap.size());
 
             while (!heap.isEmpty()) {
                 maxFrontierSize = Math.max(maxFrontierSize, heap.size());

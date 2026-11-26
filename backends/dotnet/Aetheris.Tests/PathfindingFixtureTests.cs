@@ -30,6 +30,13 @@ public class PathfindingFixtureTests
         throw new FileNotFoundException($"Fixture file {filename} could not be located starting from {AppContext.BaseDirectory}.");
     }
 
+    private static (int Row, int Col) ParseNode(string id)
+    {
+        string numPart = id[1..];
+        string[] parts = numPart.Split('c');
+        return (int.Parse(parts[0]), int.Parse(parts[1]));
+    }
+
     private void VerifyFixture(string filename, AlgorithmType expectedAlgo)
     {
         using var doc = LoadFixture(filename);
@@ -79,8 +86,112 @@ public class PathfindingFixtureTests
             Assert.Equal(expected.GetProperty("noPathReason").GetString(), response.NoPathReason);
         }
 
-        // Full Reversibility Invariant Verification:
-        // 1. Recreate initial state map
+        // 1. Path Continuity and Non-Diagonal Invariant Check
+        if (response.PathFound)
+        {
+            var path = response.Path;
+            if (path.Count == 1)
+            {
+                Assert.Equal(grid.StartNode, path[0]);
+                Assert.Equal(grid.TargetNode, path[0]);
+            }
+            else
+            {
+                Assert.Equal(grid.StartNode, path[0]);
+                Assert.Equal(grid.TargetNode, path[^1]);
+                for (int i = 0; i < path.Count - 1; i++)
+                {
+                    var (r1, c1) = ParseNode(path[i]);
+                    var (r2, c2) = ParseNode(path[i + 1]);
+                    int manhattanDist = Math.Abs(r1 - r2) + Math.Abs(c1 - c2);
+                    Assert.Equal(1, manhattanDist);
+                    Assert.True(r1 == r2 || c1 == c2, "Diagonal transitions are forbidden");
+                }
+            }
+        }
+
+        // 2. Physical Heap Array Reconstruction & Keyframe Verification
+        var physicalFrontier = new List<string>();
+        foreach (var delta in response.TraceDeltas)
+        {
+            if (expectedAlgo == AlgorithmType.DIJKSTRA || expectedAlgo == AlgorithmType.ASTAR)
+            {
+                if (delta.Action == TraceAction.INITIALIZE && delta.NodeId != null && delta.FrontierSize > 0)
+                {
+                    physicalFrontier.Add(delta.NodeId);
+                }
+                else if (delta.Action == TraceAction.ENQUEUE_FRONTIER && delta.NodeId != null)
+                {
+                    physicalFrontier.Add(delta.NodeId);
+                    foreach (var swap in delta.HeapSwaps)
+                    {
+                        var temp = physicalFrontier[swap.IndexA];
+                        physicalFrontier[swap.IndexA] = physicalFrontier[swap.IndexB];
+                        physicalFrontier[swap.IndexB] = temp;
+                    }
+                }
+                else if (delta.Action == TraceAction.DECREASE_KEY)
+                {
+                    foreach (var swap in delta.HeapSwaps)
+                    {
+                        var temp = physicalFrontier[swap.IndexA];
+                        physicalFrontier[swap.IndexA] = physicalFrontier[swap.IndexB];
+                        physicalFrontier[swap.IndexB] = temp;
+                    }
+                }
+                else if (delta.Action == TraceAction.DEQUEUE_FRONTIER)
+                {
+                    if (physicalFrontier.Count > 0)
+                    {
+                        var last = physicalFrontier[^1];
+                        physicalFrontier.RemoveAt(physicalFrontier.Count - 1);
+                        if (physicalFrontier.Count > 0)
+                        {
+                            physicalFrontier[0] = last;
+                        }
+                    }
+                    foreach (var swap in delta.HeapSwaps)
+                    {
+                        var temp = physicalFrontier[swap.IndexA];
+                        physicalFrontier[swap.IndexA] = physicalFrontier[swap.IndexB];
+                        physicalFrontier[swap.IndexB] = temp;
+                    }
+                }
+            }
+            else if (expectedAlgo == AlgorithmType.BFS)
+            {
+                if (delta.Action == TraceAction.ENQUEUE_FRONTIER && delta.NodeId != null)
+                {
+                    physicalFrontier.Add(delta.NodeId);
+                }
+                else if (delta.Action == TraceAction.DEQUEUE_FRONTIER && physicalFrontier.Count > 0)
+                {
+                    physicalFrontier.RemoveAt(0);
+                }
+            }
+            else if (expectedAlgo == AlgorithmType.DFS)
+            {
+                if (delta.Action == TraceAction.ENQUEUE_FRONTIER && delta.NodeId != null)
+                {
+                    physicalFrontier.Add(delta.NodeId);
+                }
+                else if (delta.Action == TraceAction.DEQUEUE_FRONTIER && physicalFrontier.Count > 0)
+                {
+                    physicalFrontier.RemoveAt(physicalFrontier.Count - 1);
+                }
+            }
+
+            if (delta.Step % 50 == 0 && response.Keyframes != null)
+            {
+                var kf = response.Keyframes.FirstOrDefault(k => k.Step == delta.Step);
+                if (kf != null)
+                {
+                    Assert.Equal(kf.Frontier, physicalFrontier);
+                }
+            }
+        }
+
+        // 3. Full Bidirectional Reversibility Verification:
         var stateMap = new Dictionary<string, CellState>();
         for (int r = 0; r < grid.Rows; r++)
         {

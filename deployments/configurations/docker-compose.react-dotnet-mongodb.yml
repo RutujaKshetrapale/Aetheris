@@ -23,7 +23,7 @@ services:
       - ConnectionStrings__Mongo=mongodb://aetheris:aetheris_password@mongodb:27017/aetheris?authSource=admin
 
   mongodb:
-    image: mongo:7.0
+    image: mongo:9.0
     ports:
       - "27017:27017"
     environment:

@@ -24,7 +24,7 @@ public class PathfindingController {
         this.engine = engine;
     }
 
-    @PostMapping(value = {"/trace", "/find"}, produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value = "/trace", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> tracePath(@RequestBody PathfindingRequest request) {
         if (request == null || request.getGrid() == null || request.getAlgorithm() == null) {
             ProblemDetails problem = new ProblemDetails(

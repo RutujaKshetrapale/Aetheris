@@ -83,8 +83,8 @@ app.MapGet("/api/v1/pathfinding/algorithms", () =>
 .WithName("GetAlgorithms")
 .WithTags("Pathfinding");
 
-// 3. Pathfinding Execute (/trace is canonical, /find supported as alias)
-Delegate traceHandler = (PathfindingRequest? request, PathfindingEngine engine) =>
+// 3. Pathfinding Execute (Canonical POST /api/v1/pathfinding/trace)
+app.MapPost("/api/v1/pathfinding/trace", (PathfindingRequest? request, PathfindingEngine engine) =>
 {
     if (request?.Grid == null)
     {
@@ -99,15 +99,9 @@ Delegate traceHandler = (PathfindingRequest? request, PathfindingEngine engine) 
     }
     var response = engine.Execute(request);
     return Results.Ok(response);
-};
-
-app.MapPost("/api/v1/pathfinding/trace", traceHandler)
-   .WithName("TracePath")
-   .WithTags("Pathfinding");
-
-app.MapPost("/api/v1/pathfinding/find", traceHandler)
-   .WithName("FindPath")
-   .WithTags("Pathfinding");
+})
+.WithName("TracePath")
+.WithTags("Pathfinding");
 
 // 4. Presets Endpoints
 app.MapGet("/api/v1/presets", async (IPresetRepository repo) =>

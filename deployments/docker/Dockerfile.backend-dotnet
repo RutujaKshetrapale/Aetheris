@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS builder
+FROM mcr.microsoft.com/dotnet/sdk:11.0.100 AS builder
 WORKDIR /src
 
 COPY backends/dotnet/Aetheris.Api/Aetheris.Api.csproj Aetheris.Api/
@@ -9,7 +9,7 @@ COPY backends/dotnet/Aetheris.Api/ Aetheris.Api/
 RUN dotnet publish Aetheris.Api/Aetheris.Api.csproj -c Release -o /app/publish
 
 # Stage 2: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.100 AS runtime
 WORKDIR /app
 COPY --from=builder /app/publish .
 

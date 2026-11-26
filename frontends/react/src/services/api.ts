@@ -34,11 +34,6 @@ export class AetherisApiClient {
     return res.json();
   }
 
-  // Alias for backward compatibility
-  static async findPath(request: PathfindingRequest): Promise<PathfindingResponse> {
-    return this.tracePath(request);
-  }
-
   static async getPresets(): Promise<GridPreset[]> {
     const res = await fetch(`${API_BASE}/presets`);
     if (!res.ok) throw new Error(`Failed to fetch presets: ${res.statusText}`);

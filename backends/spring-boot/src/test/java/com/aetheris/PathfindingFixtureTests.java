@@ -37,6 +37,12 @@ public class PathfindingFixtureTests {
         return objectMapper.readTree(file);
     }
 
+    private int[] parseNode(String id) {
+        String numPart = id.substring(1);
+        String[] parts = numPart.split("c");
+        return new int[]{Integer.parseInt(parts[0]), Integer.parseInt(parts[1])};
+    }
+
     private void verifyFixture(String filename, AlgorithmType expectedAlgo) throws IOException {
         JsonNode fixture = loadFixture(filename);
         GridModel grid = objectMapper.treeToValue(fixture.get("grid"), GridModel.class);
@@ -76,8 +82,81 @@ public class PathfindingFixtureTests {
             assertEquals(expected.get("noPathReason").asText(), response.getNoPathReason(), filename + " noPathReason mismatch");
         }
 
-        // Full Reversibility Verification:
-        // 1. Build initial grid state map
+        // 1. Path Continuity and Non-Diagonal Invariant Check
+        if (response.isPathFound()) {
+            List<String> path = response.getPath();
+            if (path.size() == 1) {
+                assertEquals(grid.getStartNode(), path.get(0));
+                assertEquals(grid.getTargetNode(), path.get(0));
+            } else {
+                assertEquals(grid.getStartNode(), path.get(0), "Path must begin at startNode");
+                assertEquals(grid.getTargetNode(), path.get(path.size() - 1), "Path must end at targetNode");
+                for (int i = 0; i < path.size() - 1; i++) {
+                    int[] pos1 = parseNode(path.get(i));
+                    int[] pos2 = parseNode(path.get(i + 1));
+                    int manhattanDist = Math.abs(pos1[0] - pos2[0]) + Math.abs(pos1[1] - pos2[1]);
+                    assertEquals(1, manhattanDist, "Consecutive path nodes must be Manhattan-adjacent (distance 1)");
+                    assertTrue(pos1[0] == pos2[0] || pos1[1] == pos2[1], "Diagonal transitions are forbidden");
+                }
+            }
+        }
+
+        // 2. Physical Heap Array Reconstruction & Keyframe Verification
+        List<String> physicalFrontier = new ArrayList<>();
+        for (TraceDelta delta : response.getTraceDeltas()) {
+            if (expectedAlgo == AlgorithmType.DIJKSTRA || expectedAlgo == AlgorithmType.ASTAR) {
+                if (delta.getAction() == TraceAction.INITIALIZE && delta.getNodeId() != null && delta.getFrontierSize() > 0) {
+                    physicalFrontier.add(delta.getNodeId());
+                } else if (delta.getAction() == TraceAction.ENQUEUE_FRONTIER && delta.getNodeId() != null) {
+                    physicalFrontier.add(delta.getNodeId());
+                    for (HeapSwap swap : delta.getHeapSwaps()) {
+                        String temp = physicalFrontier.get(swap.getIndexA());
+                        physicalFrontier.set(swap.getIndexA(), physicalFrontier.get(swap.getIndexB()));
+                        physicalFrontier.set(swap.getIndexB(), temp);
+                    }
+                } else if (delta.getAction() == TraceAction.DECREASE_KEY) {
+                    for (HeapSwap swap : delta.getHeapSwaps()) {
+                        String temp = physicalFrontier.get(swap.getIndexA());
+                        physicalFrontier.set(swap.getIndexA(), physicalFrontier.get(swap.getIndexB()));
+                        physicalFrontier.set(swap.getIndexB(), temp);
+                    }
+                } else if (delta.getAction() == TraceAction.DEQUEUE_FRONTIER) {
+                    if (!physicalFrontier.isEmpty()) {
+                        String last = physicalFrontier.remove(physicalFrontier.size() - 1);
+                        if (!physicalFrontier.isEmpty()) {
+                            physicalFrontier.set(0, last);
+                        }
+                    }
+                    for (HeapSwap swap : delta.getHeapSwaps()) {
+                        String temp = physicalFrontier.get(swap.getIndexA());
+                        physicalFrontier.set(swap.getIndexA(), physicalFrontier.get(swap.getIndexB()));
+                        physicalFrontier.set(swap.getIndexB(), temp);
+                    }
+                }
+            } else if (expectedAlgo == AlgorithmType.BFS) {
+                if (delta.getAction() == TraceAction.ENQUEUE_FRONTIER && delta.getNodeId() != null) {
+                    physicalFrontier.add(delta.getNodeId());
+                } else if (delta.getAction() == TraceAction.DEQUEUE_FRONTIER && !physicalFrontier.isEmpty()) {
+                    physicalFrontier.remove(0);
+                }
+            } else if (expectedAlgo == AlgorithmType.DFS) {
+                if (delta.getAction() == TraceAction.ENQUEUE_FRONTIER && delta.getNodeId() != null) {
+                    physicalFrontier.add(delta.getNodeId());
+                } else if (delta.getAction() == TraceAction.DEQUEUE_FRONTIER && !physicalFrontier.isEmpty()) {
+                    physicalFrontier.remove(physicalFrontier.size() - 1);
+                }
+            }
+
+            if (delta.getStep() % 50 == 0 && response.getKeyframes() != null) {
+                for (Keyframe kf : response.getKeyframes()) {
+                    if (kf.getStep() == delta.getStep()) {
+                        assertEquals(kf.getFrontier(), physicalFrontier, "Keyframe frontier must match reconstructed physical frontier array at step " + delta.getStep());
+                    }
+                }
+            }
+        }
+
+        // 3. Full Bidirectional Reversibility Verification:
         Map<String, CellState> stateMap = new HashMap<>();
         for (int r = 0; r < grid.getRows(); r++) {
             for (int c = 0; c < grid.getCols(); c++) {

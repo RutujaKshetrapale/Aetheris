@@ -14,6 +14,12 @@ const fixtureFiles = [
   'unreachable-target.fixture.json'
 ];
 
+const parseNodeId = (id) => {
+  const match = id.match(/^r(\d+)c(\d+)$/);
+  if (!match) throw new Error(`Invalid node id: ${id}`);
+  return [parseInt(match[1], 10), parseInt(match[2], 10)];
+};
+
 const engine = new DeterministicEngine();
 let passCount = 0;
 let failCount = 0;
@@ -94,18 +100,137 @@ for (const file of fixtureFiles) {
     console.log(`  OK: noPathReason matches (${actual.noPathReason})`);
   }
 
-  // 8. Verify Bidirectional Reversibility Invariant
-  // Forward replay: apply afterState step-by-step
-  // Backward replay: apply beforeState in reverse step-by-step
-  // Check exact bit-for-bit restoration of the initial grid state map
+  // 8. Path Continuity & Non-Diagonal Invariant Check
+  if (actual.pathFound) {
+    let continuityPassed = true;
+    if (actual.path.length === 1) {
+      if (actual.path[0] !== fixture.grid.startNode || actual.path[0] !== fixture.grid.targetNode) {
+        console.error(`  FAIL: Start equals target path must be startNode`);
+        continuityPassed = false;
+      }
+    } else {
+      if (actual.path[0] !== fixture.grid.startNode) {
+        console.error(`  FAIL: Path must begin at startNode ${fixture.grid.startNode}`);
+        continuityPassed = false;
+      }
+      if (actual.path[actual.path.length - 1] !== fixture.grid.targetNode) {
+        console.error(`  FAIL: Path must terminate at targetNode ${fixture.grid.targetNode}`);
+        continuityPassed = false;
+      }
+      for (let i = 0; i < actual.path.length - 1; i++) {
+        const [r1, c1] = parseNodeId(actual.path[i]);
+        const [r2, c2] = parseNodeId(actual.path[i + 1]);
+        const manhattanDist = Math.abs(r1 - r2) + Math.abs(c1 - c2);
+        if (manhattanDist !== 1) {
+          console.error(`  FAIL: Path continuity broken between ${actual.path[i]} and ${actual.path[i + 1]} (distance = ${manhattanDist})`);
+          continuityPassed = false;
+          break;
+        }
+        if (r1 !== r2 && c1 !== c2) {
+          console.error(`  FAIL: Diagonal transition detected between ${actual.path[i]} and ${actual.path[i + 1]}`);
+          continuityPassed = false;
+          break;
+        }
+      }
+    }
+    if (continuityPassed) {
+      console.log(`  OK: Path continuity and strictly cardinal transitions verified`);
+    } else {
+      testPassed = false;
+    }
+  }
+
+  // 9. Physical Heap / Queue Array Forward Reconstruction and Keyframe Consistency
+  const physicalFrontier = [];
+  let physicalFrontierPassed = true;
+
+  for (let i = 0; i < actual.traceDeltas.length; i++) {
+    const delta = actual.traceDeltas[i];
+
+    if (fixture.algorithm === 'DIJKSTRA' || fixture.algorithm === 'ASTAR') {
+      if (delta.action === 'INITIALIZE' && delta.nodeId && delta.frontierSize > 0) {
+        physicalFrontier.push(delta.nodeId);
+      } else if (delta.action === 'ENQUEUE_FRONTIER' && delta.nodeId) {
+        physicalFrontier.push(delta.nodeId);
+        if (delta.heapSwaps) {
+          for (const swap of delta.heapSwaps) {
+            const temp = physicalFrontier[swap.indexA];
+            physicalFrontier[swap.indexA] = physicalFrontier[swap.indexB];
+            physicalFrontier[swap.indexB] = temp;
+          }
+        }
+      } else if (delta.action === 'DECREASE_KEY') {
+        if (delta.heapSwaps) {
+          for (const swap of delta.heapSwaps) {
+            const temp = physicalFrontier[swap.indexA];
+            physicalFrontier[swap.indexA] = physicalFrontier[swap.indexB];
+            physicalFrontier[swap.indexB] = temp;
+          }
+        }
+      } else if (delta.action === 'DEQUEUE_FRONTIER') {
+        if (physicalFrontier.length > 0) {
+          const last = physicalFrontier.pop();
+          if (physicalFrontier.length > 0) {
+            physicalFrontier[0] = last;
+          }
+        }
+        if (delta.heapSwaps) {
+          for (const swap of delta.heapSwaps) {
+            const temp = physicalFrontier[swap.indexA];
+            physicalFrontier[swap.indexA] = physicalFrontier[swap.indexB];
+            physicalFrontier[swap.indexB] = temp;
+          }
+        }
+      }
+    } else if (fixture.algorithm === 'BFS') {
+      if (delta.action === 'ENQUEUE_FRONTIER' && delta.nodeId) {
+        physicalFrontier.push(delta.nodeId);
+      } else if (delta.action === 'DEQUEUE_FRONTIER') {
+        physicalFrontier.shift();
+      }
+    } else if (fixture.algorithm === 'DFS') {
+      if (delta.action === 'ENQUEUE_FRONTIER' && delta.nodeId) {
+        physicalFrontier.push(delta.nodeId);
+      } else if (delta.action === 'DEQUEUE_FRONTIER') {
+        physicalFrontier.pop();
+      }
+    }
+
+    // Verify keyframe match if keyframe was recorded at this step
+    if (delta.step % 50 === 0 && actual.keyframes) {
+      const kf = actual.keyframes.find(k => k.step === delta.step);
+      if (kf) {
+        const kfFrontierMatch = JSON.stringify(kf.frontier) === JSON.stringify(physicalFrontier);
+        if (!kfFrontierMatch) {
+          console.error(`  FAIL: Physical frontier array mismatch with keyframe at step ${delta.step}`);
+          console.error(`    Keyframe frontier: ${kf.frontier.join(', ')}`);
+          console.error(`    Physical frontier: ${physicalFrontier.join(', ')}`);
+          physicalFrontierPassed = false;
+          break;
+        }
+      }
+    }
+
+    // For BFS and DFS, startNode enters the queue/stack after step 0 initialization
+    if ((fixture.algorithm === 'BFS' || fixture.algorithm === 'DFS') && delta.action === 'INITIALIZE' && delta.nodeId && delta.frontierSize > 0) {
+      physicalFrontier.push(delta.nodeId);
+    }
+  }
+
+  if (physicalFrontierPassed) {
+    console.log(`  OK: Physical heap/queue array physical reconstruction matches keyframes across all steps`);
+  } else {
+    testPassed = false;
+  }
+
+  // 10. Verify Bidirectional Reversibility Invariant (Full restoration to initial state)
   const stateMap = new Map();
-  // Initialize state map from grid
   for (let r = 0; r < fixture.grid.rows; r++) {
     for (let c = 0; c < fixture.grid.cols; c++) {
       const id = `r${r}c${c}`;
       let cellType = 'EMPTY';
+      if (id === fixture.grid.targetNode) cellType = 'TARGET';
       if (id === fixture.grid.startNode) cellType = 'START';
-      else if (id === fixture.grid.targetNode) cellType = 'TARGET';
 
       const custom = fixture.grid.cells ? fixture.grid.cells.find(cell => cell.id === id) : null;
       if (custom && custom.cellType) cellType = custom.cellType;
@@ -178,11 +303,6 @@ for (const file of fixtureFiles) {
     console.log(`  OK: Reversible trace delta symmetry verified: full restoration of initial state`);
   } else {
     testPassed = false;
-  }
-
-  // 9. Keyframe Consistency Verification
-  if (actual.keyframes && actual.keyframes.length > 0) {
-    console.log(`  OK: Generated ${actual.keyframes.length} keyframes (every 50 steps)`);
   }
 
   if (testPassed) {

@@ -43,7 +43,7 @@ services:
   # Databases
   mysql:
     profiles: ["react-sp-my", "react-dn-my", "ang-sp-my", "ang-dn-my"]
-    image: mysql:8.4
+    image: mysql:9.7
     ports:
       - "3306:3306"
     environment:
@@ -56,7 +56,7 @@ services:
 
   mongodb:
     profiles: ["react-sp-mg", "react-dn-mg", "ang-sp-mg", "ang-dn-mg"]
-    image: mongo:7.0
+    image: mongo:9.0
     ports:
       - "27017:27017"
     environment:
