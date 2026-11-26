@@ -112,6 +112,7 @@ public class PathfindingEngine {
             TraceDelta delta = new TraceDelta(
                     stepCounter[0]++,
                     params.action,
+                    params.operationSubtype,
                     params.nodeId,
                     before,
                     after,
@@ -405,13 +406,14 @@ public class PathfindingEngine {
                             heap.decreaseKey(nId, newGCost, newFCost);
                             List<HeapSwap> decSwaps = heap.drainSwaps();
 
-                            DeltaParams decP = new DeltaParams(TraceAction.DECREASE_KEY, nId, heap.size());
+                            DeltaParams decP = new DeltaParams(TraceAction.ENQUEUE_FRONTIER, nId, heap.size());
+                            decP.operationSubtype = "DECREASE_KEY";
                             decP.gCost = newGCost;
                             decP.fCost = newFCost;
                             decP.parentId = top.id;
                             decP.parentIdSet = true;
                             decP.heapSwaps = decSwaps;
-                            decP.details = "Relaxation via " + top.id;
+                            decP.details = "DECREASE_KEY: Relaxation via " + top.id;
                             recordDelta.apply(decP);
                         }
                     } else {
@@ -515,6 +517,7 @@ public class PathfindingEngine {
 
     private static class DeltaParams {
         final TraceAction action;
+        String operationSubtype;
         final String nodeId;
         final int frontierSize;
         TraversalState traversalState;

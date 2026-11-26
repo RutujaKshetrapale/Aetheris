@@ -122,21 +122,24 @@ public class PathfindingFixtureTests
                 }
                 else if (delta.Action == TraceAction.ENQUEUE_FRONTIER && delta.NodeId != null)
                 {
-                    physicalFrontier.Add(delta.NodeId);
-                    foreach (var swap in delta.HeapSwaps)
+                    if (delta.OperationSubtype == "DECREASE_KEY")
                     {
-                        var temp = physicalFrontier[swap.IndexA];
-                        physicalFrontier[swap.IndexA] = physicalFrontier[swap.IndexB];
-                        physicalFrontier[swap.IndexB] = temp;
+                        foreach (var swap in delta.HeapSwaps)
+                        {
+                            var temp = physicalFrontier[swap.IndexA];
+                            physicalFrontier[swap.IndexA] = physicalFrontier[swap.IndexB];
+                            physicalFrontier[swap.IndexB] = temp;
+                        }
                     }
-                }
-                else if (delta.Action == TraceAction.DECREASE_KEY)
-                {
-                    foreach (var swap in delta.HeapSwaps)
+                    else
                     {
-                        var temp = physicalFrontier[swap.IndexA];
-                        physicalFrontier[swap.IndexA] = physicalFrontier[swap.IndexB];
-                        physicalFrontier[swap.IndexB] = temp;
+                        physicalFrontier.Add(delta.NodeId);
+                        foreach (var swap in delta.HeapSwaps)
+                        {
+                            var temp = physicalFrontier[swap.IndexA];
+                            physicalFrontier[swap.IndexA] = physicalFrontier[swap.IndexB];
+                            physicalFrontier[swap.IndexB] = temp;
+                        }
                     }
                 }
                 else if (delta.Action == TraceAction.DEQUEUE_FRONTIER)

@@ -27,7 +27,7 @@ It supports 2 frontends, 2 backends, and 2 database persistence engines across 8
                +----------------+----------------+
                |                                 |
         +------+------+                   +------+------+
-        | Spring Boot |                   |   .NET 9    |
+        | Spring Boot |                   |   .NET 11   |
         |   Backend   |                   |   Backend   |
         +------+------+                   +------+------+
                |                                 |

@@ -108,17 +108,19 @@ public class PathfindingFixtureTests {
                 if (delta.getAction() == TraceAction.INITIALIZE && delta.getNodeId() != null && delta.getFrontierSize() > 0) {
                     physicalFrontier.add(delta.getNodeId());
                 } else if (delta.getAction() == TraceAction.ENQUEUE_FRONTIER && delta.getNodeId() != null) {
-                    physicalFrontier.add(delta.getNodeId());
-                    for (HeapSwap swap : delta.getHeapSwaps()) {
-                        String temp = physicalFrontier.get(swap.getIndexA());
-                        physicalFrontier.set(swap.getIndexA(), physicalFrontier.get(swap.getIndexB()));
-                        physicalFrontier.set(swap.getIndexB(), temp);
-                    }
-                } else if (delta.getAction() == TraceAction.DECREASE_KEY) {
-                    for (HeapSwap swap : delta.getHeapSwaps()) {
-                        String temp = physicalFrontier.get(swap.getIndexA());
-                        physicalFrontier.set(swap.getIndexA(), physicalFrontier.get(swap.getIndexB()));
-                        physicalFrontier.set(swap.getIndexB(), temp);
+                    if ("DECREASE_KEY".equals(delta.getOperationSubtype())) {
+                        for (HeapSwap swap : delta.getHeapSwaps()) {
+                            String temp = physicalFrontier.get(swap.getIndexA());
+                            physicalFrontier.set(swap.getIndexA(), physicalFrontier.get(swap.getIndexB()));
+                            physicalFrontier.set(swap.getIndexB(), temp);
+                        }
+                    } else {
+                        physicalFrontier.add(delta.getNodeId());
+                        for (HeapSwap swap : delta.getHeapSwaps()) {
+                            String temp = physicalFrontier.get(swap.getIndexA());
+                            physicalFrontier.set(swap.getIndexA(), physicalFrontier.get(swap.getIndexB()));
+                            physicalFrontier.set(swap.getIndexB(), temp);
+                        }
                     }
                 } else if (delta.getAction() == TraceAction.DEQUEUE_FRONTIER) {
                     if (!physicalFrontier.isEmpty()) {

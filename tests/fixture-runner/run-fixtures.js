@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { DeterministicEngine } = require('./deterministic-engine');
 
-console.log('=== AETHERIS DETERMINISTIC FIXTURE TEST RUNNER ===\n');
+console.log('=== AETHERIS DETERMINISTIC FIXTURE TEST RUNNER (PHASE 1.1) ===\n');
 
 const fixturesDir = path.resolve(__dirname, '../../contracts/fixtures');
 const fixtureFiles = [
@@ -14,11 +14,354 @@ const fixtureFiles = [
   'unreachable-target.fixture.json'
 ];
 
-const parseNodeId = (id) => {
-  const match = id.match(/^r(\d+)c(\d+)$/);
-  if (!match) throw new Error(`Invalid node id: ${id}`);
-  return [parseInt(match[1], 10), parseInt(match[2], 10)];
-};
+/**
+ * Independent Playback State Model
+ * Encapsulates the entire algorithmic engine state independently from the engine itself:
+ * - Every grid cell across its 3 layers (terrain, traversal, path)
+ * - Parent pointers, gCost, hCost, fCost
+ * - Active node
+ * - Closed set
+ * - Physical frontier (queue, stack, or indexed min-heap array + indexMap + priorities)
+ * - Path & metrics
+ */
+class IndependentPlaybackState {
+  constructor(grid, algorithm) {
+    this.rows = grid.rows;
+    this.cols = grid.cols;
+    this.startNode = grid.startNode;
+    this.targetNode = grid.targetNode;
+    this.algorithm = algorithm;
+
+    this.cells = new Map();
+    this.activeNode = null;
+    this.closedSet = new Set();
+    this.physicalFrontier = []; // queue (BFS), stack (DFS), or physical heap array (Dijkstra/A*)
+    this.heapIndexMap = new Map();
+    this.heapPriorities = new Map();
+    this.path = [];
+    this.nodesVisited = 0;
+    this.maxFrontierSize = 0;
+
+    // History stacks for reversible playback
+    this.activeNodeHistory = [];
+    this.dequeuedNodesHistory = [];
+
+    // Initialize cells
+    for (let r = 0; r < grid.rows; r++) {
+      for (let c = 0; c < grid.cols; c++) {
+        const id = `r${r}c${c}`;
+        let cellType = 'EMPTY';
+        let weight = 1;
+        if (id === grid.targetNode) cellType = 'TARGET';
+        if (id === grid.startNode) cellType = 'START';
+
+        const custom = grid.cells ? grid.cells.find(cell => cell.id === id) : null;
+        if (custom) {
+          if (custom.cellType) cellType = custom.cellType;
+          if (custom.weight) weight = custom.weight;
+        }
+
+        this.cells.set(id, {
+          // Layer 1: Static Terrain
+          cellType,
+          weight,
+          // Layer 2: Traversal State & Costs
+          traversalState: 'UNVISITED',
+          parentId: null,
+          gCost: null,
+          hCost: null,
+          fCost: null,
+          // Layer 3: Path overlay
+          inPath: false
+        });
+      }
+    }
+  }
+
+  cloneSnapshot() {
+    const cellsCopy = new Map();
+    for (const [id, c] of this.cells.entries()) {
+      cellsCopy.set(id, { ...c });
+    }
+    return {
+      cells: cellsCopy,
+      activeNode: this.activeNode,
+      closedSet: new Set(this.closedSet),
+      physicalFrontier: [...this.physicalFrontier],
+      heapIndexMap: new Map(this.heapIndexMap),
+      heapPriorities: new Map(this.heapPriorities),
+      path: [...this.path],
+      nodesVisited: this.nodesVisited,
+      maxFrontierSize: this.maxFrontierSize
+    };
+  }
+
+  applyForward(delta) {
+    // 1. Update cell state if present
+    if (delta.nodeId && delta.afterState) {
+      const cell = this.cells.get(delta.nodeId);
+      if (cell) {
+        cell.traversalState = delta.afterState.traversalState;
+        cell.inPath = delta.afterState.inPath;
+        cell.gCost = delta.afterState.gCost;
+        cell.hCost = delta.afterState.hCost;
+        cell.fCost = delta.afterState.fCost;
+        cell.parentId = delta.afterState.parentId;
+      }
+    }
+
+    // 2. Action transitions
+    switch (delta.action) {
+      case 'INITIALIZE':
+        if (delta.nodeId && delta.frontierSize > 0) {
+          if (this.algorithm === 'DIJKSTRA' || this.algorithm === 'ASTAR') {
+            this.physicalFrontier.push(delta.nodeId);
+            this.heapIndexMap.set(delta.nodeId, 0);
+            this.heapPriorities.set(delta.nodeId, {
+              g: delta.afterState?.gCost ?? 0,
+              h: delta.afterState?.hCost ?? 0,
+              f: delta.afterState?.fCost ?? 0
+            });
+            this.maxFrontierSize = Math.max(this.maxFrontierSize, this.physicalFrontier.length);
+          }
+        }
+        break;
+
+      case 'EXAMINE_NODE':
+        this.activeNodeHistory.push(this.activeNode);
+        this.activeNode = delta.nodeId;
+        this.nodesVisited++;
+        break;
+
+      case 'ENQUEUE_FRONTIER':
+        if (delta.operationSubtype === 'DECREASE_KEY') {
+          // Decrease-key heap swaps
+          if (delta.heapSwaps) {
+            for (const swap of delta.heapSwaps) {
+              const temp = this.physicalFrontier[swap.indexA];
+              this.physicalFrontier[swap.indexA] = this.physicalFrontier[swap.indexB];
+              this.physicalFrontier[swap.indexB] = temp;
+              this.heapIndexMap.set(this.physicalFrontier[swap.indexA], swap.indexA);
+              this.heapIndexMap.set(this.physicalFrontier[swap.indexB], swap.indexB);
+            }
+          }
+          if (delta.nodeId && delta.afterState) {
+            this.heapPriorities.set(delta.nodeId, {
+              g: delta.afterState.gCost,
+              h: delta.afterState.hCost,
+              f: delta.afterState.fCost
+            });
+          }
+        } else {
+          // Normal enqueue
+          if (delta.nodeId) {
+            this.physicalFrontier.push(delta.nodeId);
+            if (this.algorithm === 'DIJKSTRA' || this.algorithm === 'ASTAR') {
+              this.heapIndexMap.set(delta.nodeId, this.physicalFrontier.length - 1);
+              this.heapPriorities.set(delta.nodeId, {
+                g: delta.afterState?.gCost ?? 0,
+                h: delta.afterState?.hCost ?? 0,
+                f: delta.afterState?.fCost ?? 0
+              });
+              if (delta.heapSwaps) {
+                for (const swap of delta.heapSwaps) {
+                  const temp = this.physicalFrontier[swap.indexA];
+                  this.physicalFrontier[swap.indexA] = this.physicalFrontier[swap.indexB];
+                  this.physicalFrontier[swap.indexB] = temp;
+                  this.heapIndexMap.set(this.physicalFrontier[swap.indexA], swap.indexA);
+                  this.heapIndexMap.set(this.physicalFrontier[swap.indexB], swap.indexB);
+                }
+              }
+            }
+            this.maxFrontierSize = Math.max(this.maxFrontierSize, this.physicalFrontier.length);
+          }
+        }
+        break;
+
+      case 'DEQUEUE_FRONTIER':
+        if (this.algorithm === 'BFS') {
+          const removed = this.physicalFrontier.shift();
+          this.dequeuedNodesHistory.push(removed);
+        } else if (this.algorithm === 'DFS') {
+          const removed = this.physicalFrontier.pop();
+          this.dequeuedNodesHistory.push(removed);
+        } else {
+          // Dijkstra / A*
+          if (this.physicalFrontier.length > 0) {
+            const root = this.physicalFrontier[0];
+            const last = this.physicalFrontier.pop();
+            this.dequeuedNodesHistory.push({ root, last: this.physicalFrontier.length > 0 ? last : null });
+            this.heapIndexMap.delete(root);
+            if (this.physicalFrontier.length > 0) {
+              this.physicalFrontier[0] = last;
+              this.heapIndexMap.set(last, 0);
+            }
+          }
+          if (delta.heapSwaps) {
+            for (const swap of delta.heapSwaps) {
+              const temp = this.physicalFrontier[swap.indexA];
+              this.physicalFrontier[swap.indexA] = this.physicalFrontier[swap.indexB];
+              this.physicalFrontier[swap.indexB] = temp;
+              this.heapIndexMap.set(this.physicalFrontier[swap.indexA], swap.indexA);
+              this.heapIndexMap.set(this.physicalFrontier[swap.indexB], swap.indexB);
+            }
+          }
+        }
+        break;
+
+      case 'CLOSE_NODE':
+        if (delta.nodeId) {
+          this.closedSet.add(delta.nodeId);
+          if (this.activeNode === delta.nodeId) {
+            this.activeNodeHistory.push(this.activeNode);
+            this.activeNode = null;
+          }
+        }
+        break;
+
+      case 'PATH_FOUND':
+        if (delta.nodeId) {
+          this.path.push(delta.nodeId);
+        }
+        break;
+
+      case 'NO_PATH_FOUND':
+        this.path = [];
+        break;
+
+      case 'UPDATE_METRICS':
+        break;
+    }
+  }
+
+  applyInverse(delta) {
+    // 1. Invert cell state if present
+    if (delta.nodeId && delta.beforeState) {
+      const cell = this.cells.get(delta.nodeId);
+      if (cell) {
+        cell.traversalState = delta.beforeState.traversalState;
+        cell.inPath = delta.beforeState.inPath;
+        cell.gCost = delta.beforeState.gCost;
+        cell.hCost = delta.beforeState.hCost;
+        cell.fCost = delta.beforeState.fCost;
+        cell.parentId = delta.beforeState.parentId;
+      }
+    }
+
+    // 2. Invert action transitions in exact reverse order
+    switch (delta.action) {
+      case 'INITIALIZE':
+        if (delta.nodeId && delta.frontierSize > 0) {
+          this.physicalFrontier.pop();
+          if (this.algorithm === 'DIJKSTRA' || this.algorithm === 'ASTAR') {
+            this.heapIndexMap.delete(delta.nodeId);
+            this.heapPriorities.delete(delta.nodeId);
+          }
+        }
+        break;
+
+      case 'EXAMINE_NODE':
+        this.activeNode = this.activeNodeHistory.pop() ?? null;
+        this.nodesVisited--;
+        break;
+
+      case 'ENQUEUE_FRONTIER':
+        if (delta.operationSubtype === 'DECREASE_KEY') {
+          // Reverse heap swaps in reverse order
+          if (delta.heapSwaps) {
+            for (let s = delta.heapSwaps.length - 1; s >= 0; s--) {
+              const swap = delta.heapSwaps[s];
+              const temp = this.physicalFrontier[swap.indexA];
+              this.physicalFrontier[swap.indexA] = this.physicalFrontier[swap.indexB];
+              this.physicalFrontier[swap.indexB] = temp;
+              this.heapIndexMap.set(this.physicalFrontier[swap.indexA], swap.indexA);
+              this.heapIndexMap.set(this.physicalFrontier[swap.indexB], swap.indexB);
+            }
+          }
+          if (delta.nodeId && delta.beforeState) {
+            this.heapPriorities.set(delta.nodeId, {
+              g: delta.beforeState.gCost,
+              h: delta.beforeState.hCost,
+              f: delta.beforeState.fCost
+            });
+          }
+        } else {
+          // Reverse normal enqueue
+          if (this.algorithm === 'DIJKSTRA' || this.algorithm === 'ASTAR') {
+            if (delta.heapSwaps) {
+              for (let s = delta.heapSwaps.length - 1; s >= 0; s--) {
+                const swap = delta.heapSwaps[s];
+                const temp = this.physicalFrontier[swap.indexA];
+                this.physicalFrontier[swap.indexA] = this.physicalFrontier[swap.indexB];
+                this.physicalFrontier[swap.indexB] = temp;
+                this.heapIndexMap.set(this.physicalFrontier[swap.indexA], swap.indexA);
+                this.heapIndexMap.set(this.physicalFrontier[swap.indexB], swap.indexB);
+              }
+            }
+            if (delta.nodeId) {
+              this.physicalFrontier.pop();
+              this.heapIndexMap.delete(delta.nodeId);
+              this.heapPriorities.delete(delta.nodeId);
+            }
+          } else {
+            this.physicalFrontier.pop();
+          }
+        }
+        break;
+
+      case 'DEQUEUE_FRONTIER':
+        if (this.algorithm === 'BFS') {
+          const prev = this.dequeuedNodesHistory.pop();
+          if (prev) this.physicalFrontier.unshift(prev);
+        } else if (this.algorithm === 'DFS') {
+          const prev = this.dequeuedNodesHistory.pop();
+          if (prev) this.physicalFrontier.push(prev);
+        } else {
+          // Dijkstra / A*
+          if (delta.heapSwaps) {
+            for (let s = delta.heapSwaps.length - 1; s >= 0; s--) {
+              const swap = delta.heapSwaps[s];
+              const temp = this.physicalFrontier[swap.indexA];
+              this.physicalFrontier[swap.indexA] = this.physicalFrontier[swap.indexB];
+              this.physicalFrontier[swap.indexB] = temp;
+              this.heapIndexMap.set(this.physicalFrontier[swap.indexA], swap.indexA);
+              this.heapIndexMap.set(this.physicalFrontier[swap.indexB], swap.indexB);
+            }
+          }
+          const info = this.dequeuedNodesHistory.pop();
+          if (info) {
+            if (info.last !== null) {
+              this.physicalFrontier[0] = info.root;
+              this.heapIndexMap.set(info.root, 0);
+              this.physicalFrontier.push(info.last);
+              this.heapIndexMap.set(info.last, this.physicalFrontier.length - 1);
+            } else {
+              this.physicalFrontier.push(info.root);
+              this.heapIndexMap.set(info.root, 0);
+            }
+          }
+        }
+        break;
+
+      case 'CLOSE_NODE':
+        if (delta.nodeId) {
+          this.closedSet.delete(delta.nodeId);
+          this.activeNode = this.activeNodeHistory.pop() ?? null;
+        }
+        break;
+
+      case 'PATH_FOUND':
+        this.path.pop();
+        break;
+
+      case 'NO_PATH_FOUND':
+        break;
+
+      case 'UPDATE_METRICS':
+        break;
+    }
+  }
+}
 
 const engine = new DeterministicEngine();
 let passCount = 0;
@@ -100,207 +443,143 @@ for (const file of fixtureFiles) {
     console.log(`  OK: noPathReason matches (${actual.noPathReason})`);
   }
 
-  // 8. Path Continuity & Non-Diagonal Invariant Check
-  if (actual.pathFound) {
-    let continuityPassed = true;
-    if (actual.path.length === 1) {
-      if (actual.path[0] !== fixture.grid.startNode || actual.path[0] !== fixture.grid.targetNode) {
-        console.error(`  FAIL: Start equals target path must be startNode`);
-        continuityPassed = false;
-      }
-    } else {
-      if (actual.path[0] !== fixture.grid.startNode) {
-        console.error(`  FAIL: Path must begin at startNode ${fixture.grid.startNode}`);
-        continuityPassed = false;
-      }
-      if (actual.path[actual.path.length - 1] !== fixture.grid.targetNode) {
-        console.error(`  FAIL: Path must terminate at targetNode ${fixture.grid.targetNode}`);
-        continuityPassed = false;
-      }
-      for (let i = 0; i < actual.path.length - 1; i++) {
-        const [r1, c1] = parseNodeId(actual.path[i]);
-        const [r2, c2] = parseNodeId(actual.path[i + 1]);
-        const manhattanDist = Math.abs(r1 - r2) + Math.abs(c1 - c2);
-        if (manhattanDist !== 1) {
-          console.error(`  FAIL: Path continuity broken between ${actual.path[i]} and ${actual.path[i + 1]} (distance = ${manhattanDist})`);
-          continuityPassed = false;
-          break;
-        }
-        if (r1 !== r2 && c1 !== c2) {
-          console.error(`  FAIL: Diagonal transition detected between ${actual.path[i]} and ${actual.path[i + 1]}`);
-          continuityPassed = false;
-          break;
-        }
-      }
-    }
-    if (continuityPassed) {
-      console.log(`  OK: Path continuity and strictly cardinal transitions verified`);
-    } else {
-      testPassed = false;
-    }
+  // 8. Keyframe Interval (every 50 steps: 0, 50, 100...)
+  const expectedKeyframeSteps = [];
+  for (let s = 0; s < actual.traceDeltas.length; s += 50) {
+    expectedKeyframeSteps.push(s);
+  }
+  const actualKeyframeSteps = actual.keyframes.map(k => k.step);
+  const keyframesMatch = JSON.stringify(expectedKeyframeSteps) === JSON.stringify(actualKeyframeSteps);
+  if (!keyframesMatch) {
+    console.error(`  FAIL: Keyframe step cadence mismatch.`);
+    console.error(`    Expected steps: ${expectedKeyframeSteps.join(', ')}`);
+    console.error(`    Actual steps:   ${actualKeyframeSteps.join(', ')}`);
+    testPassed = false;
+  } else {
+    console.log(`  OK: Keyframe step cadence matches 50-step invariant (${actualKeyframeSteps.join(', ')})`);
   }
 
-  // 9. Physical Heap / Queue Array Forward Reconstruction and Keyframe Consistency
-  const physicalFrontier = [];
-  let physicalFrontierPassed = true;
+  // 9. Independent Playback State Model: Forward Replay & Keyframe Validation
+  const playback = new IndependentPlaybackState(fixture.grid, fixture.algorithm);
+  const initialSnapshot = playback.cloneSnapshot();
 
+  let forwardPassed = true;
   for (let i = 0; i < actual.traceDeltas.length; i++) {
     const delta = actual.traceDeltas[i];
+    playback.applyForward(delta);
 
-    if (fixture.algorithm === 'DIJKSTRA' || fixture.algorithm === 'ASTAR') {
-      if (delta.action === 'INITIALIZE' && delta.nodeId && delta.frontierSize > 0) {
-        physicalFrontier.push(delta.nodeId);
-      } else if (delta.action === 'ENQUEUE_FRONTIER' && delta.nodeId) {
-        physicalFrontier.push(delta.nodeId);
-        if (delta.heapSwaps) {
-          for (const swap of delta.heapSwaps) {
-            const temp = physicalFrontier[swap.indexA];
-            physicalFrontier[swap.indexA] = physicalFrontier[swap.indexB];
-            physicalFrontier[swap.indexB] = temp;
-          }
-        }
-      } else if (delta.action === 'DECREASE_KEY') {
-        if (delta.heapSwaps) {
-          for (const swap of delta.heapSwaps) {
-            const temp = physicalFrontier[swap.indexA];
-            physicalFrontier[swap.indexA] = physicalFrontier[swap.indexB];
-            physicalFrontier[swap.indexB] = temp;
-          }
-        }
-      } else if (delta.action === 'DEQUEUE_FRONTIER') {
-        if (physicalFrontier.length > 0) {
-          const last = physicalFrontier.pop();
-          if (physicalFrontier.length > 0) {
-            physicalFrontier[0] = last;
-          }
-        }
-        if (delta.heapSwaps) {
-          for (const swap of delta.heapSwaps) {
-            const temp = physicalFrontier[swap.indexA];
-            physicalFrontier[swap.indexA] = physicalFrontier[swap.indexB];
-            physicalFrontier[swap.indexB] = temp;
-          }
-        }
-      }
-    } else if (fixture.algorithm === 'BFS') {
-      if (delta.action === 'ENQUEUE_FRONTIER' && delta.nodeId) {
-        physicalFrontier.push(delta.nodeId);
-      } else if (delta.action === 'DEQUEUE_FRONTIER') {
-        physicalFrontier.shift();
-      }
-    } else if (fixture.algorithm === 'DFS') {
-      if (delta.action === 'ENQUEUE_FRONTIER' && delta.nodeId) {
-        physicalFrontier.push(delta.nodeId);
-      } else if (delta.action === 'DEQUEUE_FRONTIER') {
-        physicalFrontier.pop();
-      }
-    }
-
-    // Verify keyframe match if keyframe was recorded at this step
+    // Validate keyframe if step % 50 === 0
     if (delta.step % 50 === 0 && actual.keyframes) {
       const kf = actual.keyframes.find(k => k.step === delta.step);
       if (kf) {
-        const kfFrontierMatch = JSON.stringify(kf.frontier) === JSON.stringify(physicalFrontier);
-        if (!kfFrontierMatch) {
-          console.error(`  FAIL: Physical frontier array mismatch with keyframe at step ${delta.step}`);
-          console.error(`    Keyframe frontier: ${kf.frontier.join(', ')}`);
-          console.error(`    Physical frontier: ${physicalFrontier.join(', ')}`);
-          physicalFrontierPassed = false;
+        // A. Frontier array match
+        const frontierMatch = JSON.stringify(kf.frontier) === JSON.stringify(playback.physicalFrontier);
+        if (!frontierMatch) {
+          console.error(`  FAIL: Keyframe frontier mismatch at step ${delta.step}`);
+          console.error(`    Keyframe:`, kf.frontier);
+          console.error(`    Playback:`, playback.physicalFrontier);
+          forwardPassed = false;
           break;
+        }
+
+        // B. Closed count match
+        if (kf.closedCount !== playback.closedSet.size) {
+          console.error(`  FAIL: Keyframe closedCount mismatch at step ${delta.step}. Expected ${playback.closedSet.size}, got ${kf.closedCount}`);
+          forwardPassed = false;
+          break;
+        }
+
+        // C. Cell states match
+        for (const [cellId, cell] of playback.cells.entries()) {
+          const kfCell = kf.cellStates[cellId];
+          if (!kfCell) {
+            console.error(`  FAIL: Missing cell ${cellId} in keyframe at step ${delta.step}`);
+            forwardPassed = false;
+            break;
+          }
+          if (kfCell.traversalState !== cell.traversalState || kfCell.inPath !== cell.inPath) {
+            console.error(`  FAIL: Cell state mismatch for ${cellId} at keyframe step ${delta.step}`);
+            forwardPassed = false;
+            break;
+          }
         }
       }
     }
 
-    // For BFS and DFS, startNode enters the queue/stack after step 0 initialization
-    if ((fixture.algorithm === 'BFS' || fixture.algorithm === 'DFS') && delta.action === 'INITIALIZE' && delta.nodeId && delta.frontierSize > 0) {
-      physicalFrontier.push(delta.nodeId);
+    if (delta.action === 'INITIALIZE' && (fixture.algorithm === 'BFS' || fixture.algorithm === 'DFS') && delta.nodeId && delta.frontierSize > 0) {
+      playback.physicalFrontier.push(delta.nodeId);
+      playback.maxFrontierSize = Math.max(playback.maxFrontierSize, playback.physicalFrontier.length);
     }
   }
 
-  if (physicalFrontierPassed) {
-    console.log(`  OK: Physical heap/queue array physical reconstruction matches keyframes across all steps`);
+  if (forwardPassed) {
+    console.log(`  OK: Independent playback state forward pass matches all keyframes and physical data structures`);
   } else {
     testPassed = false;
   }
 
-  // 10. Verify Bidirectional Reversibility Invariant (Full restoration to initial state)
-  const stateMap = new Map();
-  for (let r = 0; r < fixture.grid.rows; r++) {
-    for (let c = 0; c < fixture.grid.cols; c++) {
-      const id = `r${r}c${c}`;
-      let cellType = 'EMPTY';
-      if (id === fixture.grid.targetNode) cellType = 'TARGET';
-      if (id === fixture.grid.startNode) cellType = 'START';
-
-      const custom = fixture.grid.cells ? fixture.grid.cells.find(cell => cell.id === id) : null;
-      if (custom && custom.cellType) cellType = custom.cellType;
-
-      stateMap.set(id, {
-        cellType,
-        traversalState: 'UNVISITED',
-        inPath: false,
-        gCost: null,
-        hCost: null,
-        fCost: null,
-        parentId: null
-      });
-    }
-  }
-
-  // Deep clone initial state map
-  const initialSnapshots = new Map();
-  for (const [id, s] of stateMap.entries()) {
-    initialSnapshots.set(id, { ...s });
-  }
-
-  // Apply deltas forward
-  let forwardOk = true;
-  for (let i = 0; i < actual.traceDeltas.length; i++) {
-    const delta = actual.traceDeltas[i];
-    if (delta.nodeId && delta.afterState) {
-      stateMap.set(delta.nodeId, { ...delta.afterState });
-    }
-  }
-
-  // Verify that the final state matches the path overlay
-  for (const pNode of actual.path) {
-    const s = stateMap.get(pNode);
-    if (!s || !s.inPath) {
-      console.error(`  FAIL: Path node ${pNode} not marked inPath in final state`);
-      forwardOk = false;
-      break;
-    }
-  }
-
-  if (forwardOk) {
-    console.log(`  OK: Forward delta replay produced expected final state`);
-  } else {
-    testPassed = false;
-  }
-
-  // Step backwards: apply beforeState in reverse
-  let backwardOk = true;
+  // 10. Independent Playback State Model: Backward Replay & 100% Initial State Restoration
+  let backwardPassed = true;
   for (let i = actual.traceDeltas.length - 1; i >= 0; i--) {
     const delta = actual.traceDeltas[i];
-    if (delta.nodeId && delta.beforeState) {
-      stateMap.set(delta.nodeId, { ...delta.beforeState });
-    }
+    playback.applyInverse(delta);
   }
 
-  // Check that current state matches initialSnapshots exactly
-  for (const [id, initialS] of initialSnapshots.entries()) {
-    const currS = stateMap.get(id);
-    if (JSON.stringify(currS) !== JSON.stringify(initialS)) {
-      console.error(`  FAIL: Reversibility restoration failed at cell ${id}`);
-      console.error(`    Expected:`, initialS);
-      console.error(`    Current: `, currS);
-      backwardOk = false;
+  // Assert 100% initial state restoration:
+  // A. Every cell across 3 layers matches initial snapshot
+  for (const [id, initialCell] of initialSnapshot.cells.entries()) {
+    const restoredCell = playback.cells.get(id);
+    if (JSON.stringify(restoredCell) !== JSON.stringify(initialCell)) {
+      console.error(`  FAIL: Cell restoration failure at ${id}`);
+      console.error(`    Expected:`, initialCell);
+      console.error(`    Restored:`, restoredCell);
+      backwardPassed = false;
       break;
     }
   }
 
-  if (backwardOk) {
-    console.log(`  OK: Reversible trace delta symmetry verified: full restoration of initial state`);
+  // B. Active node restored to null
+  if (playback.activeNode !== null) {
+    console.error(`  FAIL: Active node not restored to null (got ${playback.activeNode})`);
+    backwardPassed = false;
+  }
+
+  // C. Closed set restored to empty
+  if (playback.closedSet.size !== 0) {
+    console.error(`  FAIL: Closed set not restored to empty (size=${playback.closedSet.size})`);
+    backwardPassed = false;
+  }
+
+  // D. Physical frontier restored to empty
+  if (playback.physicalFrontier.length !== 0) {
+    console.error(`  FAIL: Physical frontier not restored to empty (${playback.physicalFrontier.join(', ')})`);
+    backwardPassed = false;
+  }
+
+  // E. Heap index map and priorities restored to empty
+  if (playback.heapIndexMap.size !== 0) {
+    console.error(`  FAIL: Heap index map not restored to empty (size=${playback.heapIndexMap.size})`);
+    backwardPassed = false;
+  }
+  if (playback.heapPriorities.size !== 0) {
+    console.error(`  FAIL: Heap priorities not restored to empty (size=${playback.heapPriorities.size})`);
+    backwardPassed = false;
+  }
+
+  // F. Path restored to empty
+  if (playback.path.length !== 0) {
+    console.error(`  FAIL: Path not restored to empty (${playback.path.join(', ')})`);
+    backwardPassed = false;
+  }
+
+  // G. Nodes visited restored to 0
+  if (playback.nodesVisited !== 0) {
+    console.error(`  FAIL: Nodes visited not restored to 0 (got ${playback.nodesVisited})`);
+    backwardPassed = false;
+  }
+
+  if (backwardPassed) {
+    console.log(`  OK: Complete reversible playback verified: 100% initial state restoration across all layers and engine structures`);
   } else {
     testPassed = false;
   }

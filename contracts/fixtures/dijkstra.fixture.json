@@ -78,6 +78,7 @@
     {
       "step": 0,
       "action": "INITIALIZE",
+      "operationSubtype": null,
       "nodeId": "r0c0",
       "beforeState": {
         "cellType": "START",
@@ -104,6 +105,7 @@
     {
       "step": 1,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r0c0",
       "beforeState": {
         "cellType": "START",
@@ -130,6 +132,7 @@
     {
       "step": 2,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r0c0",
       "beforeState": {
         "cellType": "START",
@@ -156,6 +159,7 @@
     {
       "step": 3,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r0c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -182,6 +186,7 @@
     {
       "step": 4,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r1c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -208,6 +213,7 @@
     {
       "step": 5,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r0c0",
       "beforeState": {
         "cellType": "START",
@@ -234,6 +240,7 @@
     {
       "step": 6,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r0c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -260,6 +267,7 @@
     {
       "step": 7,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r0c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -286,6 +294,7 @@
     {
       "step": 8,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r0c2",
       "beforeState": {
         "cellType": "WEIGHTED",
@@ -312,6 +321,7 @@
     {
       "step": 9,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r1c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -338,6 +348,7 @@
     {
       "step": 10,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r0c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -364,6 +375,7 @@
     {
       "step": 11,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r1c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -390,6 +402,7 @@
     {
       "step": 12,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r1c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -416,6 +429,7 @@
     {
       "step": 13,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r2c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -442,6 +456,7 @@
     {
       "step": 14,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r1c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -468,6 +483,7 @@
     {
       "step": 15,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r1c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -494,6 +510,7 @@
     {
       "step": 16,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r1c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -520,6 +537,7 @@
     {
       "step": 17,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r2c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -546,6 +564,7 @@
     {
       "step": 18,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r1c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -572,6 +591,7 @@
     {
       "step": 19,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r2c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -598,6 +618,7 @@
     {
       "step": 20,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r2c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -624,6 +645,7 @@
     {
       "step": 21,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r3c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -650,6 +672,7 @@
     {
       "step": 22,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r2c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -676,6 +699,7 @@
     {
       "step": 23,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r2c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -702,6 +726,7 @@
     {
       "step": 24,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r2c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -728,6 +753,7 @@
     {
       "step": 25,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r3c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -754,6 +780,7 @@
     {
       "step": 26,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r2c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -780,6 +807,7 @@
     {
       "step": 27,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r3c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -806,6 +834,7 @@
     {
       "step": 28,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r3c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -832,6 +861,7 @@
     {
       "step": 29,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r4c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -858,6 +888,7 @@
     {
       "step": 30,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r3c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -884,6 +915,7 @@
     {
       "step": 31,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r3c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -910,6 +942,7 @@
     {
       "step": 32,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r3c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -936,6 +969,7 @@
     {
       "step": 33,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r4c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -962,6 +996,7 @@
     {
       "step": 34,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r3c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -988,6 +1023,7 @@
     {
       "step": 35,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r4c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1014,6 +1050,7 @@
     {
       "step": 36,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r4c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1040,6 +1077,7 @@
     {
       "step": 37,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r4c0",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1066,6 +1104,7 @@
     {
       "step": 38,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r4c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1092,6 +1131,7 @@
     {
       "step": 39,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r4c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1118,6 +1158,7 @@
     {
       "step": 40,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r4c2",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1144,6 +1185,7 @@
     {
       "step": 41,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r4c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1170,6 +1212,7 @@
     {
       "step": 42,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r0c2",
       "beforeState": {
         "cellType": "WEIGHTED",
@@ -1196,6 +1239,7 @@
     {
       "step": 43,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r0c2",
       "beforeState": {
         "cellType": "WEIGHTED",
@@ -1222,6 +1266,7 @@
     {
       "step": 44,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r0c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1248,6 +1293,7 @@
     {
       "step": 45,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r0c2",
       "beforeState": {
         "cellType": "WEIGHTED",
@@ -1274,6 +1320,7 @@
     {
       "step": 46,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r4c2",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1300,6 +1347,7 @@
     {
       "step": 47,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r4c2",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1326,6 +1374,7 @@
     {
       "step": 48,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r4c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1352,6 +1401,7 @@
     {
       "step": 49,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r4c2",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1378,6 +1428,7 @@
     {
       "step": 50,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r0c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1404,6 +1455,7 @@
     {
       "step": 51,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r0c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1430,6 +1482,7 @@
     {
       "step": 52,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r0c4",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1456,6 +1509,7 @@
     {
       "step": 53,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r1c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1482,6 +1536,7 @@
     {
       "step": 54,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r0c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1508,6 +1563,7 @@
     {
       "step": 55,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r4c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1541,6 +1597,7 @@
     {
       "step": 56,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r4c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1567,6 +1624,7 @@
     {
       "step": 57,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r3c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1593,6 +1651,7 @@
     {
       "step": 58,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r4c4",
       "beforeState": {
         "cellType": "TARGET",
@@ -1619,6 +1678,7 @@
     {
       "step": 59,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r4c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1645,6 +1705,7 @@
     {
       "step": 60,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r0c4",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1678,6 +1739,7 @@
     {
       "step": 61,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r0c4",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1704,6 +1766,7 @@
     {
       "step": 62,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r1c4",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1730,6 +1793,7 @@
     {
       "step": 63,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r0c4",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1756,6 +1820,7 @@
     {
       "step": 64,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r1c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1789,6 +1854,7 @@
     {
       "step": 65,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r1c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1815,6 +1881,7 @@
     {
       "step": 66,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r2c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1841,6 +1908,7 @@
     {
       "step": 67,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r1c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1867,6 +1935,7 @@
     {
       "step": 68,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r3c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1900,6 +1969,7 @@
     {
       "step": 69,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r3c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1926,6 +1996,7 @@
     {
       "step": 70,
       "action": "ENQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r3c4",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1952,6 +2023,7 @@
     {
       "step": 71,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r3c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -1978,6 +2050,7 @@
     {
       "step": 72,
       "action": "DEQUEUE_FRONTIER",
+      "operationSubtype": null,
       "nodeId": "r4c4",
       "beforeState": {
         "cellType": "TARGET",
@@ -2011,6 +2084,7 @@
     {
       "step": 73,
       "action": "EXAMINE_NODE",
+      "operationSubtype": null,
       "nodeId": "r4c4",
       "beforeState": {
         "cellType": "TARGET",
@@ -2037,6 +2111,7 @@
     {
       "step": 74,
       "action": "CLOSE_NODE",
+      "operationSubtype": null,
       "nodeId": "r4c4",
       "beforeState": {
         "cellType": "TARGET",
@@ -2063,6 +2138,7 @@
     {
       "step": 75,
       "action": "PATH_FOUND",
+      "operationSubtype": null,
       "nodeId": "r0c0",
       "beforeState": {
         "cellType": "START",
@@ -2089,6 +2165,7 @@
     {
       "step": 76,
       "action": "PATH_FOUND",
+      "operationSubtype": null,
       "nodeId": "r0c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -2115,6 +2192,7 @@
     {
       "step": 77,
       "action": "PATH_FOUND",
+      "operationSubtype": null,
       "nodeId": "r1c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -2141,6 +2219,7 @@
     {
       "step": 78,
       "action": "PATH_FOUND",
+      "operationSubtype": null,
       "nodeId": "r2c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -2167,6 +2246,7 @@
     {
       "step": 79,
       "action": "PATH_FOUND",
+      "operationSubtype": null,
       "nodeId": "r3c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -2193,6 +2273,7 @@
     {
       "step": 80,
       "action": "PATH_FOUND",
+      "operationSubtype": null,
       "nodeId": "r4c1",
       "beforeState": {
         "cellType": "EMPTY",
@@ -2219,6 +2300,7 @@
     {
       "step": 81,
       "action": "PATH_FOUND",
+      "operationSubtype": null,
       "nodeId": "r4c2",
       "beforeState": {
         "cellType": "EMPTY",
@@ -2245,6 +2327,7 @@
     {
       "step": 82,
       "action": "PATH_FOUND",
+      "operationSubtype": null,
       "nodeId": "r4c3",
       "beforeState": {
         "cellType": "EMPTY",
@@ -2271,6 +2354,7 @@
     {
       "step": 83,
       "action": "PATH_FOUND",
+      "operationSubtype": null,
       "nodeId": "r4c4",
       "beforeState": {
         "cellType": "TARGET",

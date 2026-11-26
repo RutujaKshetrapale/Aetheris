@@ -10,6 +10,7 @@ out/
 target/
 bin/
 obj/
+publish/
 .angular/
 
 # Logs

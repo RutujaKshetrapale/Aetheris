@@ -13,7 +13,6 @@ import java.util.Optional;
  * Architectural Boundary: MySQL Adapter
  * Status: PENDING (Phase 1 Foundation - Operational adapter is InMemoryPresetAdapter)
  */
-@Component
 public class MySqlPresetAdapter implements PresetRepositoryPort {
 
     private final boolean enabled;

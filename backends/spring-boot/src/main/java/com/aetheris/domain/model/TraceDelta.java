@@ -6,6 +6,7 @@ import java.util.List;
 public class TraceDelta {
     private int step;
     private TraceAction action;
+    private String operationSubtype;
     private String nodeId;
     private CellState beforeState;
     private CellState afterState;
@@ -16,8 +17,13 @@ public class TraceDelta {
     public TraceDelta() {}
 
     public TraceDelta(int step, TraceAction action, String nodeId, CellState beforeState, CellState afterState, int frontierSize, List<HeapSwap> heapSwaps, String details) {
+        this(step, action, null, nodeId, beforeState, afterState, frontierSize, heapSwaps, details);
+    }
+
+    public TraceDelta(int step, TraceAction action, String operationSubtype, String nodeId, CellState beforeState, CellState afterState, int frontierSize, List<HeapSwap> heapSwaps, String details) {
         this.step = step;
         this.action = action;
+        this.operationSubtype = operationSubtype;
         this.nodeId = nodeId;
         this.beforeState = beforeState;
         this.afterState = afterState;
@@ -31,6 +37,9 @@ public class TraceDelta {
 
     public TraceAction getAction() { return action; }
     public void setAction(TraceAction action) { this.action = action; }
+
+    public String getOperationSubtype() { return operationSubtype; }
+    public void setOperationSubtype(String operationSubtype) { this.operationSubtype = operationSubtype; }
 
     public String getNodeId() { return nodeId; }
     public void setNodeId(String nodeId) { this.nodeId = nodeId; }

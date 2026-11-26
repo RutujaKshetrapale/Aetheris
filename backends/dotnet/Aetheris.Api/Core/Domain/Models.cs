@@ -30,7 +30,6 @@ public enum TraceAction
     EXAMINE_NODE,
     UPDATE_METRICS,
     CLOSE_NODE,
-    DECREASE_KEY,
     PATH_FOUND,
     NO_PATH_FOUND
 }
@@ -141,6 +140,7 @@ public class TraceDelta
 {
     public int Step { get; set; }
     public TraceAction Action { get; set; }
+    public string? OperationSubtype { get; set; }
     public string? NodeId { get; set; }
     public CellState? BeforeState { get; set; }
     public CellState? AfterState { get; set; }
@@ -150,10 +150,11 @@ public class TraceDelta
 
     public TraceDelta() { }
 
-    public TraceDelta(int step, TraceAction action, string? nodeId, CellState? beforeState, CellState? afterState, int frontierSize, List<HeapSwap>? heapSwaps = null, string? details = null)
+    public TraceDelta(int step, TraceAction action, string? nodeId, CellState? beforeState, CellState? afterState, int frontierSize, List<HeapSwap>? heapSwaps = null, string? details = null, string? operationSubtype = null)
     {
         Step = step;
         Action = action;
+        OperationSubtype = operationSubtype;
         NodeId = nodeId;
         BeforeState = beforeState;
         AfterState = afterState;

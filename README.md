@@ -3,7 +3,7 @@
 **Architecture Baseline:** Revision 2.1.0  
 **Status:** Phase 1 Foundation Fully Established & Verified
 
-AETHERIS is an algorithm visualization and exploration platform engineering showcase designed to demonstrate cross-platform deterministic pathfinding across multiple frontends (React, Angular), backends (Spring Boot, .NET 9), and persistence layers (MySQL, MongoDB).
+AETHERIS is an algorithm visualization and exploration platform engineering showcase designed to demonstrate cross-platform deterministic pathfinding across multiple frontends (React, Angular), backends (Spring Boot, .NET 11), and persistence layers (MySQL, MongoDB).
 
 ## Monorepo Layout
 
@@ -72,12 +72,12 @@ All 8 configurations consume the canonical `contracts/openapi.yaml` and support 
 
 | Component | Target Version | Selected GA Version | Role / Environment | Status |
 |-----------|----------------|---------------------|--------------------|--------|
-| Specification | OpenAPI 3.2.0 | 3.2.0 | Canonical Contract (`contracts/openapi.yaml`) | Verified & Conforming |
-| Schemas | JSON Schema Draft 2020-12 | Draft 2020-12 | Canonical Shared Schemas (10 schemas) | Verified & Compiled |
-| Spring Boot Backend | Spring Boot 4.2.0 / Java 25 LTS | Spring Boot 4.2.0 GA / Java 21 LTS host (Java 25 container) | `backends/spring-boot/` REST API | Compiled, Packaged & Tested (6/6 passing) |
-| .NET Backend | .NET SDK 11.0.100 | .NET 9.0.311 host (.NET 11 container) | `backends/dotnet/` Minimal API | Compiled & Tested (6/6 passing) |
-| React Frontend | React 19.3.1 | React 19.3.1 GA / Vite 8.3.8 / TS 6.0.3 | `frontends/react/` Web Application | Installed & Built Cleanly (1.88s) |
-| Angular Frontend | Angular 22.x / TS 6.0.x | Angular 22.3.0 GA / TS 6.0.3 GA | `frontends/angular/` Web Application | Workspace Configured & Typed |
-| MySQL Database | MySQL 9.7 LTS | `mysql:9.7` | Container Profiles (8.4 upgraded to 9.7) | Configured in 4 Compose Profiles |
-| MongoDB Database | MongoDB 9.0.x | `mongo:9.0` | Container Profiles (7.0 upgraded to 9.0) | Configured in 4 Compose Profiles |
-| Toolchain / Node.js | Node.js 26.x | `node:26-alpine` (v24.14 host) | Tooling & Container Base Image | Verified & Validated |
+| Specification | OpenAPI 3.2.0 | 3.2.0 | Canonical Contract (`contracts/openapi.yaml`) | Verified & Conforming (0 errors) |
+| Schemas | JSON Schema Draft 2020-12 | Draft 2020-12 | Canonical Shared Schemas (10 schemas) | Verified & Compiled (0 errors) |
+| Spring Boot Backend | Spring Boot 4.2.0 / Java 25 LTS | Spring Boot 4.2.0 GA / OpenJDK 25.0.5.1 LTS | `backends/spring-boot/` REST API | Compiled, Packaged & Tested on Java 25 (6/6 passing) |
+| .NET Backend | .NET SDK 11.0.100 | .NET SDK 11.0.100 (net11.0) | `backends/dotnet/` Minimal API | Built, Tested & Published on .NET 11 (6/6 passing) |
+| React Frontend | React 19.3.1 | React 19.3.1 GA / Vite 8.3.8 / TS 6.0.3 | `frontends/react/` Web Application | Clean Production Build on Node 26 (1.40s) |
+| Angular Frontend | Angular 22.x / TS 6.0.x | Angular 22.3.0 GA / TS 6.0.3 GA | `frontends/angular/` Web Application | Clean Production Build on Node 26 (7.06s) |
+| MySQL Database | MySQL 9.7 LTS | `mysql:9.7` | Container Profiles (MySQL 9.7 LTS) | Configured in 4 Compose Profiles (503 boundary stub) |
+| MongoDB Database | MongoDB 9.0.x | `mongo:9.0` | Container Profiles (MongoDB 9.0 GA) | Configured in 4 Compose Profiles (503 boundary stub) |
+| Toolchain / Node.js | Node.js 26.x | Node.js 26.13.1 GA | Tooling & Angular / React Build Runtime | Verified Native Host Build |

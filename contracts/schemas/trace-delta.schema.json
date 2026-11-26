@@ -3,7 +3,10 @@
   "$id": "trace-delta.schema.json",
   "title": "Aetheris Reversible Trace Delta",
   "type": "object",
-  "required": ["step", "action"],
+  "required": [
+    "step",
+    "action"
+  ],
   "properties": {
     "step": {
       "type": "integer",
@@ -18,25 +21,41 @@
         "EXAMINE_NODE",
         "UPDATE_METRICS",
         "CLOSE_NODE",
-        "DECREASE_KEY",
         "PATH_FOUND",
         "NO_PATH_FOUND"
       ]
     },
+    "operationSubtype": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "nodeId": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "pattern": "^r[0-9]+c[0-9]+$"
     },
     "beforeState": {
       "oneOf": [
-        { "$ref": "cell-state.schema.json" },
-        { "type": "null" }
+        {
+          "$ref": "cell-state.schema.json"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "afterState": {
       "oneOf": [
-        { "$ref": "cell-state.schema.json" },
-        { "type": "null" }
+        {
+          "$ref": "cell-state.schema.json"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "frontierSize": {
@@ -47,18 +66,36 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["indexA", "indexB", "nodeA", "nodeB"],
+        "required": [
+          "indexA",
+          "indexB",
+          "nodeA",
+          "nodeB"
+        ],
         "properties": {
-          "indexA": { "type": "integer", "minimum": 0 },
-          "indexB": { "type": "integer", "minimum": 0 },
-          "nodeA": { "type": "string" },
-          "nodeB": { "type": "string" }
+          "indexA": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "indexB": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "nodeA": {
+            "type": "string"
+          },
+          "nodeB": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
       }
     },
     "details": {
-      "type": ["string", "null"]
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "additionalProperties": false

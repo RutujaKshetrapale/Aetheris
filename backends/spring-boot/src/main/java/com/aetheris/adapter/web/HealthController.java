@@ -35,7 +35,7 @@ public class HealthController {
                 "UP",
                 "UP",
                 persistenceStatus,
-                "Spring Boot 3.2.5 (Java 21)",
+                "Spring Boot 4.2.0 (Java 25)",
                 version,
                 persistenceEngine.toUpperCase(),
                 dbConnected

@@ -55,7 +55,7 @@ app.MapGet("/api/v1/health", (IPresetRepository repo, IConfiguration config) =>
     string engine = repo.AdapterType;
     bool dbConnected = repo.IsAvailable;
     string persistenceStatus = dbConnected ? "UP" : "PENDING";
-    return Results.Ok(new HealthStatus("UP", "UP", persistenceStatus, ".NET 9.0 (C# 13)", version, engine, dbConnected));
+    return Results.Ok(new HealthStatus("UP", "UP", persistenceStatus, ".NET 11.0 (C# 13)", version, engine, dbConnected));
 })
 .WithName("GetHealth")
 .WithTags("System");

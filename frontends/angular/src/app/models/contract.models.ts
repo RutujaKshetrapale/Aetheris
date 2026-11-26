@@ -7,7 +7,6 @@ export type TraceAction =
   | 'EXAMINE_NODE'
   | 'UPDATE_METRICS'
   | 'CLOSE_NODE'
-  | 'DECREASE_KEY'
   | 'PATH_FOUND'
   | 'NO_PATH_FOUND';
 
@@ -50,6 +49,7 @@ export interface HeapSwap {
 export interface TraceDelta {
   step: number;
   action: TraceAction;
+  operationSubtype?: string | null;
   nodeId?: string | null;
   beforeState?: CellState | null;
   afterState?: CellState | null;

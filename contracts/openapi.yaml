@@ -7,9 +7,9 @@ info:
     name: AETHERIS Engineering Team
 servers:
   - url: http://localhost:8080
-    description: Spring Boot Backend
+    description: Spring Boot 4.2.0 (Java 25) Backend
   - url: http://localhost:5000
-    description: .NET 9 Backend
+    description: .NET 11 (C# 13) Backend
 
 paths:
   /api/v1/health:
@@ -222,7 +222,6 @@ components:
         - EXAMINE_NODE
         - UPDATE_METRICS
         - CLOSE_NODE
-        - DECREASE_KEY
         - PATH_FOUND
         - NO_PATH_FOUND
 
@@ -343,6 +342,10 @@ components:
           minimum: 0
         action:
           $ref: '#/components/schemas/TraceAction'
+        operationSubtype:
+          type: string
+          nullable: true
+          description: Operation subtype when action is ENQUEUE_FRONTIER (e.g. DECREASE_KEY)
         nodeId:
           type: string
           nullable: true

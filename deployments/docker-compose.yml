@@ -1,5 +1,13 @@
 # AETHERIS Unified Multi-Profile Docker Compose Specification
 # Architecture Revision: 2.1.0
+#
+# ARCHITECTURAL COMPLIANCE NOTICE:
+# - Frontends (React 19.3.1, Angular 22.3.0) and Backends (Spring Boot 4.2.0 Java 25, .NET 11.0.100 C#)
+#   provide 100% feature-complete pathfinding, execution metrics, and reversible trace engines.
+# - The default operational persistence mode is IN_MEMORY.
+# - Database services (MySQL 9.7 LTS, MongoDB 9.0) are provisioned for all 8 deployment profiles.
+# - MySQL and MongoDB application adapters are formal architectural boundary stubs returning
+#   RFC 9457 Problem Details (HTTP 503 Service Unavailable) pending Phase 2 data store implementation.
 
 services:
   # Frontends

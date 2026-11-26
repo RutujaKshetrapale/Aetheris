@@ -13,7 +13,6 @@ import java.util.Optional;
  * Architectural Boundary: MongoDB Adapter
  * Status: PENDING (Phase 1 Foundation - Operational adapter is InMemoryPresetAdapter)
  */
-@Component
 public class MongoPresetAdapter implements PresetRepositoryPort {
 
     private final boolean enabled;

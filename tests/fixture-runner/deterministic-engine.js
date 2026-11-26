@@ -91,7 +91,7 @@ class DeterministicEngine {
     let activeNode = null;
     let getFrontierIds = () => [];
 
-    const recordDelta = (action, nodeId, afterUpdates, frontierSize, heapSwaps = [], details = null) => {
+    const recordDelta = (action, nodeId, afterUpdates, frontierSize, heapSwaps = [], details = null, operationSubtype = null) => {
       let beforeState = null;
       let afterState = null;
 
@@ -104,6 +104,7 @@ class DeterministicEngine {
       const delta = {
         step: step++,
         action,
+        operationSubtype: operationSubtype || null,
         nodeId: nodeId || null,
         beforeState,
         afterState,
@@ -504,11 +505,11 @@ class DeterministicEngine {
               }, heap.length, pushSwaps);
             } else if (nState.traversalState === 'FRONTIER' && tentativeGCost < nState.gCost) {
               const decSwaps = decreaseKeyHeap(neighborId, tentativeGCost, tentativeFCost);
-              recordDelta('DECREASE_KEY', neighborId, {
+              recordDelta('ENQUEUE_FRONTIER', neighborId, {
                 parentId: top.id,
                 gCost: tentativeGCost,
                 fCost: tentativeFCost
-              }, heap.length, decSwaps, 'Relaxed path with lower cost');
+              }, heap.length, decSwaps, 'DECREASE_KEY: Relaxed path with lower cost', 'DECREASE_KEY');
             }
           }
         }

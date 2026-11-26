@@ -102,7 +102,8 @@ public class PathfindingEngine
             TraversalState? traversalState = null, bool? inPath = null,
             int? gCost = null, int? hCost = null, int? fCost = null,
             string? parentId = null, bool setParent = false,
-            List<HeapSwap>? heapSwaps = null, string? details = null)
+            List<HeapSwap>? heapSwaps = null, string? details = null,
+            string? operationSubtype = null)
         {
             CellState? before = null;
             CellState? after = null;
@@ -129,7 +130,8 @@ public class PathfindingEngine
                 after,
                 frontierSize,
                 heapSwaps,
-                details
+                details,
+                operationSubtype
             );
             traceDeltas.Add(delta);
 
@@ -374,9 +376,10 @@ public class PathfindingEngine
                             heap.DecreaseKey(nId, newGCost, newFCost);
                             var decSwaps = heap.DrainSwaps();
 
-                            RecordDelta(TraceAction.DECREASE_KEY, nId, heap.Count,
+                            RecordDelta(TraceAction.ENQUEUE_FRONTIER, nId, heap.Count,
                                 gCost: newGCost, fCost: newFCost, parentId: top.Id, setParent: true,
-                                heapSwaps: decSwaps, details: $"Relaxation via {top.Id}");
+                                heapSwaps: decSwaps, details: $"DECREASE_KEY: Relaxation via {top.Id}",
+                                operationSubtype: "DECREASE_KEY");
                         }
                     }
                     else
