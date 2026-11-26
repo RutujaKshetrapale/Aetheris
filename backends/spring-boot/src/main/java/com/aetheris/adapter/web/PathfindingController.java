@@ -26,20 +26,21 @@ public class PathfindingController {
 
     @PostMapping(value = "/trace", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> tracePath(@RequestBody PathfindingRequest request) {
-        if (request == null || request.getGrid() == null || request.getAlgorithm() == null) {
+        try {
+            PathfindingResponse response = engine.execute(request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException ex) {
             ProblemDetails problem = new ProblemDetails(
                     "https://aetheris.dev/errors/bad-request",
                     "Invalid Request Parameters",
                     HttpStatus.BAD_REQUEST.value(),
-                    "Missing algorithm or grid specification in pathfinding request.",
+                    ex.getMessage(),
                     "/api/v1/pathfinding/trace"
             );
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .header("Content-Type", "application/problem+json")
                     .body(problem);
         }
-        PathfindingResponse response = engine.execute(request);
-        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/algorithms")

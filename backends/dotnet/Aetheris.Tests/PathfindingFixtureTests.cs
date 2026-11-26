@@ -18,11 +18,15 @@ public class PathfindingFixtureTests
         var currentDir = new DirectoryInfo(AppContext.BaseDirectory);
         while (currentDir != null)
         {
-            var candidate = Path.Combine(currentDir.FullName, "contracts", "fixtures", filename);
-            if (File.Exists(candidate))
+            var candidate1 = Path.Combine(currentDir.FullName, "contracts", "fixtures", "pathfinding", filename);
+            if (File.Exists(candidate1))
             {
-                string json = File.ReadAllText(candidate);
-                return JsonDocument.Parse(json);
+                return JsonDocument.Parse(File.ReadAllText(candidate1));
+            }
+            var candidate2 = Path.Combine(currentDir.FullName, "contracts", "fixtures", filename);
+            if (File.Exists(candidate2))
+            {
+                return JsonDocument.Parse(File.ReadAllText(candidate2));
             }
             currentDir = currentDir.Parent;
         }
@@ -276,4 +280,34 @@ public class PathfindingFixtureTests
 
     [Fact]
     public void TestUnreachableTargetFixture() => VerifyFixture("unreachable-target.fixture.json", AlgorithmType.BFS);
+
+    [Fact]
+    public void TestAdjacentTargetFixture() => VerifyFixture("adjacent-target.fixture.json", AlgorithmType.BFS);
+
+    [Fact]
+    public void TestCompletelyBlockedFixture() => VerifyFixture("completely-blocked.fixture.json", AlgorithmType.DFS);
+
+    [Fact]
+    public void TestOneRowFixture() => VerifyFixture("one-row.fixture.json", AlgorithmType.ASTAR);
+
+    [Fact]
+    public void TestOneColumnFixture() => VerifyFixture("one-column.fixture.json", AlgorithmType.DIJKSTRA);
+
+    [Fact]
+    public void TestMultipleEqualPathsFixture() => VerifyFixture("multiple-equal-paths.fixture.json", AlgorithmType.BFS);
+
+    [Fact]
+    public void TestWeightedDivergenceBfsFixture() => VerifyFixture("weighted-divergence-bfs.fixture.json", AlgorithmType.BFS);
+
+    [Fact]
+    public void TestWeightedDivergenceDijkstraFixture() => VerifyFixture("weighted-divergence-dijkstra.fixture.json", AlgorithmType.DIJKSTRA);
+
+    [Fact]
+    public void TestWeightedDivergenceAstarFixture() => VerifyFixture("weighted-divergence-astar.fixture.json", AlgorithmType.ASTAR);
+
+    [Fact]
+    public void TestRepeatedDecreaseKeyFixture() => VerifyFixture("repeated-decrease-key.fixture.json", AlgorithmType.DIJKSTRA);
+
+    [Fact]
+    public void TestLargeGridFixture() => VerifyFixture("large-grid.fixture.json", AlgorithmType.ASTAR);
 }

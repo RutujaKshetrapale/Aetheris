@@ -86,19 +86,22 @@ app.MapGet("/api/v1/pathfinding/algorithms", () =>
 // 3. Pathfinding Execute (Canonical POST /api/v1/pathfinding/trace)
 app.MapPost("/api/v1/pathfinding/trace", (PathfindingRequest? request, PathfindingEngine engine) =>
 {
-    if (request?.Grid == null)
+    try
+    {
+        var response = engine.Execute(request!);
+        return Results.Ok(response);
+    }
+    catch (ArgumentException ex)
     {
         var problem = new ProblemDetails(
             "https://aetheris.dev/errors/bad-request",
             "Invalid Request Parameters",
             StatusCodes.Status400BadRequest,
-            "Missing algorithm or grid specification in pathfinding request.",
+            ex.Message,
             "/api/v1/pathfinding/trace"
         );
         return Results.Json(problem, contentType: "application/problem+json", statusCode: StatusCodes.Status400BadRequest);
     }
-    var response = engine.Execute(request);
-    return Results.Ok(response);
 })
 .WithName("TracePath")
 .WithTags("Pathfinding");

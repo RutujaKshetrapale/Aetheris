@@ -22,8 +22,73 @@ public class PathfindingEngine
         Direction.UP
     };
 
+    public void Validate(PathfindingRequest? request)
+    {
+        if (request == null)
+            throw new ArgumentException("Pathfinding request cannot be null");
+        if (request.Grid == null)
+            throw new ArgumentException("Grid model cannot be null");
+
+        var grid = request.Grid;
+        int rows = grid.Rows;
+        int cols = grid.Cols;
+        if (rows < 1 || cols < 1 || rows > 200 || cols > 200)
+            throw new ArgumentException($"Grid dimensions must be integers between 1 and 200: rows={rows}, cols={cols}");
+
+        string startNode = grid.StartNode;
+        string targetNode = grid.TargetNode;
+        if (string.IsNullOrWhiteSpace(startNode) || string.IsNullOrWhiteSpace(targetNode))
+            throw new ArgumentException("Start node and target node are required");
+
+        int startR, startC, targetR, targetC;
+        try
+        {
+            (startR, startC) = NodeIdUtil.Parse(startNode);
+            (targetR, targetC) = NodeIdUtil.Parse(targetNode);
+        }
+        catch (Exception ex)
+        {
+            throw new ArgumentException($"Invalid node id format: {ex.Message}", ex);
+        }
+
+        if (startR < 0 || startR >= rows || startC < 0 || startC >= cols)
+            throw new ArgumentException($"Start node out of bounds: {startNode}");
+        if (targetR < 0 || targetR >= rows || targetC < 0 || targetC >= cols)
+            throw new ArgumentException($"Target node out of bounds: {targetNode}");
+
+        if (grid.Cells != null)
+        {
+            foreach (var cd in grid.Cells)
+            {
+                if (string.IsNullOrWhiteSpace(cd.Id))
+                    throw new ArgumentException("Cell id is required");
+                int r, c;
+                try
+                {
+                    (r, c) = NodeIdUtil.Parse(cd.Id);
+                }
+                catch (Exception ex)
+                {
+                    throw new ArgumentException($"Invalid cell id format: {cd.Id}", ex);
+                }
+                if (r < 0 || r >= rows || c < 0 || c >= cols)
+                    throw new ArgumentException($"Cell {cd.Id} out of bounds");
+                if (r != cd.Row || c != cd.Col)
+                    throw new ArgumentException($"Cell id does not match coordinates for {cd.Id}");
+                if (cd.CellType == CellType.WEIGHTED)
+                {
+                    if (cd.Weight < 2 || cd.Weight > 100)
+                        throw new ArgumentException($"Weighted cell must have integer weight between 2 and 100: {cd.Id}");
+                }
+                if ((cd.Id == startNode || cd.Id == targetNode) && cd.CellType == CellType.WALL)
+                    throw new ArgumentException($"Start or target node cannot be a WALL: {cd.Id}");
+            }
+        }
+    }
+
     public PathfindingResponse Execute(PathfindingRequest request)
     {
+        Validate(request);
         var stopwatch = Stopwatch.StartNew();
 
         var algorithm = request.Algorithm;
@@ -314,11 +379,24 @@ public class PathfindingEngine
         else if (algorithm == AlgorithmType.DIJKSTRA || algorithm == AlgorithmType.ASTAR)
         {
             bool isAStar = (algorithm == AlgorithmType.ASTAR);
+            int minTraversableWeight = int.MaxValue;
+            foreach (var kvp in weightMap)
+            {
+                if (kvp.Key != startNode && cellTypeMap[kvp.Key] != CellType.WALL)
+                {
+                    minTraversableWeight = Math.Min(minTraversableWeight, kvp.Value);
+                }
+            }
+            if (minTraversableWeight == int.MaxValue || minTraversableWeight < 1)
+            {
+                minTraversableWeight = 1;
+            }
+
             var heap = new IndexedMinHeapFrontier(isAStar);
             getFrontierIds = heap.GetFrontierIds;
             long enqueueSeq = 0;
 
-            int startH = isAStar ? HeuristicCalculator.Calculate(request.Heuristic, startR, startC, targetR, targetC) : 0;
+            int startH = isAStar ? HeuristicCalculator.Calculate(request.Heuristic, startR, startC, targetR, targetC, minTraversableWeight) : 0;
             int startF = startH;
 
             heap.Push(new IndexedMinHeapFrontier.HeapNode(startNode, startR, startC, 0, startH, startF, enqueueSeq++));
@@ -365,7 +443,7 @@ public class PathfindingEngine
 
                     int entryCost = weightMap[nId];
                     int newGCost = currGCost + entryCost;
-                    int hCost = isAStar ? HeuristicCalculator.Calculate(request.Heuristic, nr, nc, targetR, targetC) : 0;
+                    int hCost = isAStar ? HeuristicCalculator.Calculate(request.Heuristic, nr, nc, targetR, targetC, minTraversableWeight) : 0;
                     int newFCost = newGCost + hCost;
 
                     if (heap.Contains(nId))

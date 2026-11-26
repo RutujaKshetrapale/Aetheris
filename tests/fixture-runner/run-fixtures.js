@@ -2,17 +2,15 @@ const fs = require('fs');
 const path = require('path');
 const { DeterministicEngine } = require('./deterministic-engine');
 
-console.log('=== AETHERIS DETERMINISTIC FIXTURE TEST RUNNER (PHASE 1.1) ===\n');
+console.log('=== AETHERIS DETERMINISTIC FIXTURE TEST RUNNER (PHASE 2) ===\n');
 
-const fixturesDir = path.resolve(__dirname, '../../contracts/fixtures');
-const fixtureFiles = [
-  'bfs.fixture.json',
-  'dfs.fixture.json',
-  'dijkstra.fixture.json',
-  'astar.fixture.json',
-  'start-equals-target.fixture.json',
-  'unreachable-target.fixture.json'
-];
+const fixturesDir = fs.existsSync(path.resolve(__dirname, '../../contracts/fixtures/pathfinding'))
+  ? path.resolve(__dirname, '../../contracts/fixtures/pathfinding')
+  : path.resolve(__dirname, '../../contracts/fixtures');
+
+const fixtureFiles = fs.readdirSync(fixturesDir)
+  .filter(f => f.endsWith('.fixture.json'))
+  .sort();
 
 /**
  * Independent Playback State Model

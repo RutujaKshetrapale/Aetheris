@@ -66,9 +66,16 @@ export const MetricsPanel: React.FC<MetricsPanelProps> = ({
       </div>
 
       <div className="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
-        <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Trace Step</span>
+        <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Step Progress</span>
         <span className="text-sm font-mono font-bold text-sky-400 mt-1">
-          {currentStep >= 0 ? `${currentStep + 1} / ${totalSteps}` : '0 / 0'}
+          {currentStep >= 0 ? `${currentStep + 1} / ${totalSteps}` : `0 / ${totalSteps}`}
+        </span>
+      </div>
+
+      <div className="flex flex-col p-2.5 bg-slate-950/70 rounded-xl border border-slate-800/80">
+        <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400">Execution Time</span>
+        <span className="text-sm font-mono font-bold text-sky-300 mt-1">
+          {metrics ? `${metrics.executionTimeMs} ms` : '—'}
         </span>
       </div>
     </div>

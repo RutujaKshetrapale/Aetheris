@@ -26,15 +26,22 @@ public class PathfindingFixtureTests {
     }
 
     private JsonNode loadFixture(String filename) throws IOException {
-        File file = new File("../../contracts/fixtures/" + filename);
-        if (!file.exists()) {
-            file = new File("contracts/fixtures/" + filename);
+        String[] candidatePaths = new String[]{
+            "../../contracts/fixtures/pathfinding/" + filename,
+            "../../contracts/fixtures/" + filename,
+            "../contracts/fixtures/pathfinding/" + filename,
+            "../contracts/fixtures/" + filename,
+            "contracts/fixtures/pathfinding/" + filename,
+            "contracts/fixtures/" + filename
+        };
+        for (String p : candidatePaths) {
+            File f = new File(p);
+            if (f.exists()) {
+                return objectMapper.readTree(f);
+            }
         }
-        if (!file.exists()) {
-            file = new File("../contracts/fixtures/" + filename);
-        }
-        assertTrue(file.exists(), "Fixture file must exist at " + file.getAbsolutePath());
-        return objectMapper.readTree(file);
+        fail("Fixture file must exist: " + filename);
+        return null;
     }
 
     private int[] parseNode(String id) {
@@ -254,5 +261,65 @@ public class PathfindingFixtureTests {
     @DisplayName("Verify Spring Boot Unreachable Target special case matches canonical fixture")
     public void testUnreachableTargetFixture() throws IOException {
         verifyFixture("unreachable-target.fixture.json", AlgorithmType.BFS);
+    }
+
+    @Test
+    @DisplayName("Verify Spring Boot Adjacent Target matches canonical fixture")
+    public void testAdjacentTargetFixture() throws IOException {
+        verifyFixture("adjacent-target.fixture.json", AlgorithmType.BFS);
+    }
+
+    @Test
+    @DisplayName("Verify Spring Boot Completely Blocked matches canonical fixture")
+    public void testCompletelyBlockedFixture() throws IOException {
+        verifyFixture("completely-blocked.fixture.json", AlgorithmType.DFS);
+    }
+
+    @Test
+    @DisplayName("Verify Spring Boot One Row corridor matches canonical fixture")
+    public void testOneRowFixture() throws IOException {
+        verifyFixture("one-row.fixture.json", AlgorithmType.ASTAR);
+    }
+
+    @Test
+    @DisplayName("Verify Spring Boot One Column corridor matches canonical fixture")
+    public void testOneColumnFixture() throws IOException {
+        verifyFixture("one-column.fixture.json", AlgorithmType.DIJKSTRA);
+    }
+
+    @Test
+    @DisplayName("Verify Spring Boot Multiple Equal Paths matches canonical fixture")
+    public void testMultipleEqualPathsFixture() throws IOException {
+        verifyFixture("multiple-equal-paths.fixture.json", AlgorithmType.BFS);
+    }
+
+    @Test
+    @DisplayName("Verify Spring Boot Weighted Divergence BFS matches canonical fixture")
+    public void testWeightedDivergenceBfsFixture() throws IOException {
+        verifyFixture("weighted-divergence-bfs.fixture.json", AlgorithmType.BFS);
+    }
+
+    @Test
+    @DisplayName("Verify Spring Boot Weighted Divergence Dijkstra matches canonical fixture")
+    public void testWeightedDivergenceDijkstraFixture() throws IOException {
+        verifyFixture("weighted-divergence-dijkstra.fixture.json", AlgorithmType.DIJKSTRA);
+    }
+
+    @Test
+    @DisplayName("Verify Spring Boot Weighted Divergence A* matches canonical fixture")
+    public void testWeightedDivergenceAstarFixture() throws IOException {
+        verifyFixture("weighted-divergence-astar.fixture.json", AlgorithmType.ASTAR);
+    }
+
+    @Test
+    @DisplayName("Verify Spring Boot Repeated Decrease-Key matches canonical fixture")
+    public void testRepeatedDecreaseKeyFixture() throws IOException {
+        verifyFixture("repeated-decrease-key.fixture.json", AlgorithmType.DIJKSTRA);
+    }
+
+    @Test
+    @DisplayName("Verify Spring Boot Large Grid matches canonical fixture")
+    public void testLargeGridFixture() throws IOException {
+        verifyFixture("large-grid.fixture.json", AlgorithmType.ASTAR);
     }
 }

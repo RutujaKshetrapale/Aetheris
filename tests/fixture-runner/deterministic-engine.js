@@ -42,7 +42,50 @@ class DeterministicEngine {
     return { ...cs };
   }
 
+  validate(algorithm, gridModel) {
+    if (!['BFS', 'DFS', 'DIJKSTRA', 'ASTAR'].includes(algorithm)) {
+      throw new Error(`Unsupported algorithm: ${algorithm}`);
+    }
+    if (!gridModel) {
+      throw new Error('Grid model is required');
+    }
+    const { rows, cols, startNode, targetNode, cells } = gridModel;
+    if (typeof rows !== 'number' || typeof cols !== 'number' || rows < 1 || cols < 1 || rows > 1000 || cols > 1000) {
+      throw new Error(`Grid dimensions must be positive integers <= 1000: rows=${rows}, cols=${cols}`);
+    }
+    if (!startNode || !targetNode) {
+      throw new Error('Start node and target node are required');
+    }
+    const startPos = this.parseNodeId(startNode);
+    const targetPos = this.parseNodeId(targetNode);
+    if (startPos.row < 0 || startPos.row >= rows || startPos.col < 0 || startPos.col >= cols) {
+      throw new Error(`Start node ${startNode} out of bounds for grid ${rows}x${cols}`);
+    }
+    if (targetPos.row < 0 || targetPos.row >= rows || targetPos.col < 0 || targetPos.col >= cols) {
+      throw new Error(`Target node ${targetNode} out of bounds for grid ${rows}x${cols}`);
+    }
+    if (cells) {
+      for (const cell of cells) {
+        if (cell.row < 0 || cell.row >= rows || cell.col < 0 || cell.col >= cols) {
+          throw new Error(`Cell ${cell.id} out of bounds: (${cell.row}, ${cell.col})`);
+        }
+        if (cell.id !== this.nodeId(cell.row, cell.col)) {
+          throw new Error(`Cell id ${cell.id} does not match coordinates (${cell.row}, ${cell.col})`);
+        }
+        if (cell.cellType === 'WEIGHTED') {
+          if (typeof cell.weight !== 'number' || cell.weight < 2 || cell.weight > 100 || !Number.isInteger(cell.weight)) {
+            throw new Error(`Weighted cell ${cell.id} must have integer weight between 2 and 100, got ${cell.weight}`);
+          }
+        }
+        if ((cell.id === startNode || cell.id === targetNode) && cell.cellType === 'WALL') {
+          throw new Error(`Start or target node ${cell.id} cannot be designated as WALL`);
+        }
+      }
+    }
+  }
+
   run(algorithm, gridModel) {
+    this.validate(algorithm, gridModel);
     const startTime = Date.now();
     const { rows, cols, startNode, targetNode } = gridModel;
     const startPos = this.parseNodeId(startNode);
@@ -429,7 +472,17 @@ class DeterministicEngine {
         return swaps;
       };
 
-      const hStart = isAStar ? this.manhattan(startPos.row, startPos.col, targetPos.row, targetPos.col) : 0;
+      let minTraversableWeight = Infinity;
+      for (const [id, weight] of weightMap.entries()) {
+        if (id !== startNode && cellTypeMap.get(id) !== 'WALL') {
+          minTraversableWeight = Math.min(minTraversableWeight, weight);
+        }
+      }
+      if (minTraversableWeight === Infinity || minTraversableWeight < 1) {
+        minTraversableWeight = 1;
+      }
+
+      const hStart = isAStar ? this.manhattan(startPos.row, startPos.col, targetPos.row, targetPos.col) * minTraversableWeight : 0;
       const startItem = {
         id: startNode,
         row: startPos.row,
@@ -482,7 +535,7 @@ class DeterministicEngine {
 
             const edgeWeight = weightMap.get(neighborId) || 1;
             const tentativeGCost = currState.gCost + edgeWeight;
-            const h = isAStar ? this.manhattan(nr, nc, targetPos.row, targetPos.col) : 0;
+            const h = isAStar ? this.manhattan(nr, nc, targetPos.row, targetPos.col) * minTraversableWeight : 0;
             const tentativeFCost = tentativeGCost + h;
 
             if (nState.traversalState === 'UNVISITED') {
