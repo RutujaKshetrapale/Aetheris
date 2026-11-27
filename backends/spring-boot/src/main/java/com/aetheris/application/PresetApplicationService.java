@@ -28,7 +28,7 @@ public class PresetApplicationService {
         if (!presetRepository.isAvailable()) {
             throw new PersistenceUnavailableException(
                     presetRepository.getAdapterType(),
-                    "The configured " + presetRepository.getAdapterType() + " persistence adapter is unavailable in Phase 3."
+                    "The configured " + presetRepository.getAdapterType() + " persistence adapter is unavailable."
             );
         }
     }

@@ -1,0 +1,38 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": ["id", "name", "grid", "createdAt", "updatedAt"],
+    "properties": {
+      "_id": {},
+      "id": { "bsonType": "string", "minLength": 1, "maxLength": 64 },
+      "name": { "bsonType": "string", "minLength": 1, "maxLength": 255 },
+      "description": { "bsonType": ["string", "null"] },
+      "grid": {
+        "bsonType": "object",
+        "required": ["rows", "cols", "startNode", "targetNode", "cells"],
+        "properties": {
+          "rows": { "bsonType": "int", "minimum": 1, "maximum": 200 },
+          "cols": { "bsonType": "int", "minimum": 1, "maximum": 200 },
+          "startNode": { "bsonType": "string", "pattern": "^r[0-9]+c[0-9]+$" },
+          "targetNode": { "bsonType": "string", "pattern": "^r[0-9]+c[0-9]+$" },
+          "cells": {
+            "bsonType": "array",
+            "items": {
+              "bsonType": "object",
+              "required": ["id", "row", "col", "cellType", "weight"],
+              "properties": {
+                "id": { "bsonType": "string", "pattern": "^r[0-9]+c[0-9]+$" },
+                "row": { "bsonType": "int", "minimum": 0, "maximum": 199 },
+                "col": { "bsonType": "int", "minimum": 0, "maximum": 199 },
+                "cellType": { "enum": ["EMPTY", "WALL", "START", "TARGET", "WEIGHTED"] },
+                "weight": { "bsonType": "int", "minimum": 1, "maximum": 100 }
+              }
+            }
+          }
+        }
+      },
+      "createdAt": { "bsonType": "string", "minLength": 1 },
+      "updatedAt": { "bsonType": "string", "minLength": 1 }
+    }
+  }
+}

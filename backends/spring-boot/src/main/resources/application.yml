@@ -8,10 +8,26 @@ spring:
     default-property-inclusion: always
     serialization:
       indent-output: true
+  data:
+    mongodb:
+      repositories:
+        enabled: false
 
 aetheris:
   version: 2.1.0
   persistence:
     engine: ${AETHERIS_PERSISTENCE_ENGINE:IN_MEMORY}
+    mysql:
+      url: ${SPRING_DATASOURCE_URL:}
+      host: ${AETHERIS_MYSQL_HOST:}
+      port: ${AETHERIS_MYSQL_PORT:3306}
+      database: ${AETHERIS_MYSQL_DATABASE:}
+      username: ${SPRING_DATASOURCE_USERNAME:${AETHERIS_MYSQL_USER:}}
+      password: ${SPRING_DATASOURCE_PASSWORD:${AETHERIS_MYSQL_PASSWORD:}}
+      connect-timeout-ms: ${AETHERIS_DB_CONNECT_TIMEOUT_MS:2000}
+    mongodb:
+      uri: ${SPRING_DATA_MONGODB_URI:${AETHERIS_MONGODB_URI:}}
+      database: ${SPRING_DATA_MONGODB_DATABASE:${AETHERIS_MONGODB_DATABASE:aetheris}}
+      connect-timeout-ms: ${AETHERIS_DB_CONNECT_TIMEOUT_MS:2000}
   cors:
     allowed-origins: ${AETHERIS_CORS_ALLOWED_ORIGINS:*}

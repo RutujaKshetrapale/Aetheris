@@ -22,7 +22,7 @@ public class PresetApplicationService
         {
             throw new PersistenceUnavailableException(
                 _presetRepository.AdapterType,
-                $"The configured {_presetRepository.AdapterType} persistence adapter is unavailable in Phase 3.");
+                $"The configured {_presetRepository.AdapterType} persistence adapter is unavailable.");
         }
     }
 

@@ -1,0 +1,44 @@
+{
+  "$jsonSchema": {
+    "bsonType": "object",
+    "required": [
+      "id",
+      "algorithm",
+      "heuristic",
+      "gridRows",
+      "gridCols",
+      "startNode",
+      "targetNode",
+      "pathFound",
+      "pathNodeCount",
+      "pathEdgeCount",
+      "nodesVisited",
+      "maxFrontierSize",
+      "totalSteps",
+      "executionTimeMs",
+      "createdAt"
+    ],
+    "properties": {
+      "_id": {},
+      "id": { "bsonType": "string", "minLength": 1, "maxLength": 64 },
+      "name": { "bsonType": ["string", "null"] },
+      "presetId": { "bsonType": ["string", "null"] },
+      "algorithm": { "enum": ["BFS", "DFS", "DIJKSTRA", "ASTAR"] },
+      "heuristic": { "enum": ["MANHATTAN"] },
+      "gridRows": { "bsonType": "int", "minimum": 1, "maximum": 200 },
+      "gridCols": { "bsonType": "int", "minimum": 1, "maximum": 200 },
+      "startNode": { "bsonType": "string", "pattern": "^r[0-9]+c[0-9]+$" },
+      "targetNode": { "bsonType": "string", "pattern": "^r[0-9]+c[0-9]+$" },
+      "pathFound": { "bsonType": "bool" },
+      "pathNodeCount": { "bsonType": "int", "minimum": 0 },
+      "pathEdgeCount": { "bsonType": "int", "minimum": 0 },
+      "algorithmPathCost": { "bsonType": ["int", "null"] },
+      "terrainPathCost": { "bsonType": ["int", "null"] },
+      "nodesVisited": { "bsonType": "int", "minimum": 0 },
+      "maxFrontierSize": { "bsonType": "int", "minimum": 0 },
+      "totalSteps": { "bsonType": "int", "minimum": 0 },
+      "executionTimeMs": { "bsonType": ["double", "int"], "minimum": 0 },
+      "createdAt": { "bsonType": "string", "minLength": 1 }
+    }
+  }
+}

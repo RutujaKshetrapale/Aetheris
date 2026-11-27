@@ -1,7 +1,7 @@
 # AETHERIS Architecture Specification
 
 **Revision:** 2.1.0  
-**Status:** Phase 1 Foundation, Phase 2 Engines & Workbench, Phase 3 Backend API & Application Layer Implemented  
+**Status:** Phase 1–4 Implemented (Core Engines, Workbenches, Backend APIs, and Real MySQL 9.7 & MongoDB 9.0 Persistence)  
 **Domain:** Cross-Platform Deterministic Pathfinding Engine & Algorithmic Visualizer
 
 ## 1. Monorepo Architecture Overview
@@ -22,7 +22,7 @@ Domain & Pure Algorithm Engine (PathfindingEngine, Reversible Frontiers, GridVal
 Persistence Ports (PresetRepositoryPort / IPresetRepository, BenchmarkRepositoryPort / IBenchmarkRepository)
        │
        ▼
-Persistence Adapters (Active: InMemoryPresetAdapter, InMemoryBenchmarkAdapter | Phase 4 Stubs: MySQL, MongoDB)
+Persistence Adapters (InMemory, MySQL 9.7 [JPA / Dapper], MongoDB 9.0 [Spring Data MongoDB / MongoDB.Driver])
 ```
 
 ## 2. Invariants & Determinism Rules
@@ -67,7 +67,9 @@ Keyframes are captured every 50 steps (`step % 50 == 0`).
 - Exact integer values and preserved array ordering.
 - Compact representation used for SHA-256 `contentHash` verification; 2-space indented representation for normal exports.
 
-## 4. Persistence Decoupling & Phase 4 Boundaries
+## 4. Persistence Decoupling & Database Adapters
 - Core pathfinding (`POST /api/v1/pathfinding/trace`) and readiness (`GET /api/v1/health/ready`) do not depend on database connectivity.
-- In Phase 3, `InMemoryPresetAdapter` and `InMemoryBenchmarkAdapter` are operational; `GET /api/v1/health` reports `persistenceEngine: "IN_MEMORY"`, `persistenceStatus: "UP"`, and `databaseConnected: false`.
-- `MySQL` and `MongoDB` adapters remain architectural boundary stubs (`isAvailable() == false`, `isDatabaseConnected() == false`) returning RFC 9457 `503 Service Unavailable` without silent fallback to in-memory storage. Real database implementations belong to Phase 4.
+- `IN_MEMORY` mode uses `InMemoryPresetAdapter` and `InMemoryBenchmarkAdapter`; `GET /api/v1/health` reports `persistenceEngine: "IN_MEMORY"`, `persistenceStatus: "UP"`, and `databaseConnected: false`.
+- `MYSQL` mode uses normalized `presets` + `preset_cells` and `benchmarks` tables (Spring Data JPA / Hibernate in Spring Boot; Dapper + `MySqlConnector` in .NET 11).
+- `MONGODB` mode uses `presets` and `benchmarks` collections with strict `$jsonSchema` validation (Spring Data MongoDB in Spring Boot; `MongoDB.Driver` in .NET 11).
+- When a configured database is unavailable or misconfigured, health checks remain bounded (2s timeout), `GET /api/v1/health` reports `persistenceStatus: "UNAVAILABLE"` and `databaseConnected: false`, and persistence endpoints return RFC 9457 `503 Service Unavailable` without silent fallback to `IN_MEMORY`.

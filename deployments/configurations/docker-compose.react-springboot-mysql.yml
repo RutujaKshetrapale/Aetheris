@@ -17,12 +17,19 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     environment:
       - AETHERIS_PERSISTENCE_ENGINE=MYSQL
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/aetheris?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/aetheris?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       - SPRING_DATASOURCE_USERNAME=aetheris
       - SPRING_DATASOURCE_PASSWORD=aetheris_password
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/v1/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   mysql:
     image: mysql:9.7
@@ -35,6 +42,15 @@ services:
       - MYSQL_ROOT_PASSWORD=root_password
     volumes:
       - mysql_data:/var/lib/mysql
+      - ../../database/mysql/init/01-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ../../database/mysql/migrations/V1__initial_schema.sql:/docker-entrypoint-initdb.d/02-schema.sql:ro
+      - ../../database/mysql/seed/01-seed-presets.sql:/docker-entrypoint-initdb.d/03-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
 
 volumes:
   mysql_data:

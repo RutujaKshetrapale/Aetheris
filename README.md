@@ -1,7 +1,7 @@
 # AETHERIS — The Art of Algorithmic Thinking
 
 **Architecture Baseline:** Revision 2.1.0  
-**Status:** Phase 1 Foundation, Phase 2 Algorithm Engines & Workbench, and Phase 3 Backend API & Application Layer Implemented
+**Status:** Phase 1–4 Implemented (Core Engines, Workbenches, Backend APIs, and Real MySQL 9.7 & MongoDB 9.0 Persistence)
 
 AETHERIS is a cross-platform deterministic pathfinding and algorithmic visualization platform featuring symmetric backend implementations in **Spring Boot 4.2.0 (Java 25)** and **.NET 11 (C# 13)**, paired with **React 19.3.1** (primary workbench) and **Angular 22.3.0** frontends.
 
@@ -74,11 +74,61 @@ Aetheris/
 
 ## Persistence & Health Behavior
 
-- **Phase 3 Active Adapter (`IN_MEMORY`)**: Both backends run `InMemoryPresetAdapter` and `InMemoryBenchmarkAdapter` by default. Health reports:
-  - `persistenceEngine: "IN_MEMORY"`
-  - `persistenceStatus: "UP"`
-  - `databaseConnected: false` (never reports `true` without a real external database connection).
-- **Phase 4 Database Boundaries (`MYSQL`, `MONGODB`)**: MySQL and MongoDB persistence adapters are deferred to Phase 4. When configured (`AETHERIS_PERSISTENCE_ENGINE=MYSQL` or `Aetheris__Persistence__Engine=MYSQL`), persistence endpoints return **HTTP 503** (`application/problem+json`) without silently falling back to in-memory storage, while core pathfinding (`POST /api/v1/pathfinding/trace`) and `/api/v1/health/ready` remain `200 OK`.
+Both backends support configuration-driven adapter selection without silent fallback to in-memory storage:
+
+- **`IN_MEMORY` (Default for Local Dev)**: Uses `InMemoryPresetAdapter` and `InMemoryBenchmarkAdapter`. Health reports `persistenceEngine: "IN_MEMORY"`, `persistenceStatus: "UP"`, and `databaseConnected: false`.
+- **`MYSQL` (MySQL 9.7)**:
+  - Spring Boot uses Spring Data JPA / Hibernate (`MySqlPresetAdapter`, `MySqlBenchmarkAdapter`).
+  - .NET 11 uses Dapper + `MySqlConnector` (`MySqlPresetAdapter`, `MySqlBenchmarkAdapter`).
+  - Schema & migrations live in [`database/mysql/`](database/mysql/README.md).
+- **`MONGODB` (MongoDB 9.0)**:
+  - Spring Boot uses Spring Data MongoDB (`MongoPresetAdapter`, `MongoBenchmarkAdapter`).
+  - .NET 11 uses `MongoDB.Driver` (`MongoPresetAdapter`, `MongoBenchmarkAdapter`).
+  - Collections, `$jsonSchema` validators, indexes, and seeds live in [`database/mongodb/`](database/mongodb/README.md).
+- **Database Outage / Misconfiguration**:
+  - Core pathfinding (`POST /api/v1/pathfinding/trace`) and `/api/v1/health/ready` remain `200 OK`.
+  - `/api/v1/health` reports `persistenceStatus: "UNAVAILABLE"` and `databaseConnected: false` (bounded by 2s connection timeout).
+  - Preset and benchmark persistence endpoints return **HTTP 503** (`application/problem+json`) without falling back to `IN_MEMORY`.
+
+### Switching Persistence Engines
+
+#### Spring Boot (`AETHERIS_PERSISTENCE_ENGINE`)
+```bash
+# In-memory (default)
+AETHERIS_PERSISTENCE_ENGINE=IN_MEMORY mvn spring-boot:run -f backends/spring-boot/pom.xml
+
+# MySQL 9.7
+AETHERIS_PERSISTENCE_ENGINE=MYSQL SPRING_DATASOURCE_URL="jdbc:mysql://127.0.0.1:3306/aetheris?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC" SPRING_DATASOURCE_USERNAME=aetheris SPRING_DATASOURCE_PASSWORD=aetheris_password mvn spring-boot:run -f backends/spring-boot/pom.xml
+
+# MongoDB 9.0
+AETHERIS_PERSISTENCE_ENGINE=MONGODB SPRING_DATA_MONGODB_URI="mongodb://aetheris:aetheris_password@127.0.0.1:27017/aetheris?authSource=admin" SPRING_DATA_MONGODB_DATABASE=aetheris mvn spring-boot:run -f backends/spring-boot/pom.xml
+```
+
+#### .NET 11 (`Aetheris__Persistence__Engine`)
+```bash
+# In-memory (default)
+Aetheris__Persistence__Engine=IN_MEMORY dotnet run --project backends/dotnet/Aetheris.Api/Aetheris.Api.csproj --urls http://localhost:5000
+
+# MySQL 9.7
+Aetheris__Persistence__Engine=MYSQL ConnectionStrings__MySql="Server=127.0.0.1;Port=3306;Database=aetheris;User=aetheris;Password=aetheris_password;" dotnet run --project backends/dotnet/Aetheris.Api/Aetheris.Api.csproj --urls http://localhost:5000
+
+# MongoDB 9.0
+Aetheris__Persistence__Engine=MONGODB ConnectionStrings__Mongo="mongodb://aetheris:aetheris_password@127.0.0.1:27017/aetheris?authSource=admin" Aetheris__Persistence__MongoDb__Database=aetheris dotnet run --project backends/dotnet/Aetheris.Api/Aetheris.Api.csproj --urls http://localhost:5000
+```
+
+See [`.env.example`](.env.example), [`backends/spring-boot/.env.example`](backends/spring-boot/.env.example), and [`backends/dotnet/.env.example`](backends/dotnet/.env.example) for all environment variables.
+
+## Docker Compose (All 8 Configurations)
+
+Each profile in `deployments/configurations/` starts the selected frontend, backend, and database with health checks and automatic schema/seed initialization:
+
+```bash
+# Example: React + Spring Boot + MySQL
+docker compose -f deployments/configurations/docker-compose.react-springboot-mysql.yml up --build
+
+# Example: Angular + .NET 11 + MongoDB
+docker compose -f deployments/configurations/docker-compose.angular-dotnet-mongodb.yml up --build
+```
 
 ## Error Semantics (RFC 9457)
 
@@ -186,4 +236,4 @@ npm --prefix frontends/angular run build
 | React / Vite / TS | `19.3.1` / `8.3.8` / `6.0.3` | `frontends/react/` Workbench (`3100`) |
 | Angular / TS | `22.3.0` / `6.0.3` | `frontends/angular/` Client (`4200`) |
 | Node.js | `26.13.1` | Contract/Conformance/Frontend Build Runtime |
-| MySQL / MongoDB | `9.7` / `9.0` (Deferred to Phase 4) | 503 Architectural Boundary Stubs in Phase 3 |
+| MySQL / MongoDB | `9.7` / `9.0` | Real JPA / Dapper (MySQL) and Spring Data MongoDB / MongoDB.Driver adapters |

@@ -15,10 +15,18 @@ services:
     ports:
       - "5000:5000"
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     environment:
       - Aetheris__Persistence__Engine=MONGODB
       - ConnectionStrings__Mongo=mongodb://aetheris:aetheris_password@mongodb:27017/aetheris?authSource=admin
+      - Aetheris__Persistence__MongoDb__Database=aetheris
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/v1/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
 
   mongodb:
     image: mongo:9.0
@@ -30,6 +38,13 @@ services:
       - MONGO_INITDB_DATABASE=aetheris
     volumes:
       - mongo_data:/data/db
+      - ../../database/mongodb/init/01-init.js:/docker-entrypoint-initdb.d/01-init.js:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet -u $$MONGO_INITDB_ROOT_USERNAME -p $$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\" | grep 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
 
 volumes:
   mongo_data:

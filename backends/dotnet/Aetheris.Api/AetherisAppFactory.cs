@@ -10,6 +10,24 @@ namespace Aetheris;
 
 public static class AetherisAppFactory
 {
+    private static readonly HashSet<string> SupportedEngines = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "IN_MEMORY",
+        "MYSQL",
+        "MONGODB"
+    };
+
+    private static string ResolvePersistenceEngine(IConfiguration config)
+    {
+        string engine = (config["Aetheris:Persistence:Engine"] ?? "IN_MEMORY").Trim().ToUpperInvariant();
+        if (!SupportedEngines.Contains(engine))
+        {
+            throw new InvalidOperationException(
+                $"Unsupported Aetheris:Persistence:Engine '{engine}'. Expected one of: IN_MEMORY, MYSQL, MONGODB.");
+        }
+        return engine;
+    }
+
     public static WebApplication BuildApp(string[]? args = null, IDictionary<string, string?>? configOverrides = null)
     {
         var builder = WebApplication.CreateBuilder(args ?? Array.Empty<string>());
@@ -18,6 +36,8 @@ public static class AetherisAppFactory
         {
             builder.Configuration.AddInMemoryCollection(configOverrides);
         }
+
+        string selectedEngine = ResolvePersistenceEngine(builder.Configuration);
 
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddOpenApi();
@@ -54,31 +74,21 @@ public static class AetherisAppFactory
         builder.Services.AddSingleton<PathfindingEngine>();
         builder.Services.AddSingleton<InMemoryPresetAdapter>();
         builder.Services.AddSingleton<InMemoryBenchmarkAdapter>();
+        builder.Services.AddSingleton<MySqlConnectionContext>();
+        builder.Services.AddSingleton<MongoConnectionContext>();
 
-        builder.Services.AddSingleton<IPresetRepository>(sp =>
+        builder.Services.AddSingleton<IPresetRepository>(sp => selectedEngine switch
         {
-            var config = sp.GetRequiredService<IConfiguration>();
-            string engine = config["Aetheris:Persistence:Engine"] ?? "IN_MEMORY";
-
-            if (string.Equals(engine, "MYSQL", StringComparison.OrdinalIgnoreCase))
-                return new MySqlPresetAdapter(config);
-            if (string.Equals(engine, "MONGODB", StringComparison.OrdinalIgnoreCase))
-                return new MongoPresetAdapter(config);
-
-            return sp.GetRequiredService<InMemoryPresetAdapter>();
+            "MYSQL" => new MySqlPresetAdapter(sp.GetRequiredService<MySqlConnectionContext>()),
+            "MONGODB" => new MongoPresetAdapter(sp.GetRequiredService<MongoConnectionContext>()),
+            _ => sp.GetRequiredService<InMemoryPresetAdapter>()
         });
 
-        builder.Services.AddSingleton<IBenchmarkRepository>(sp =>
+        builder.Services.AddSingleton<IBenchmarkRepository>(sp => selectedEngine switch
         {
-            var config = sp.GetRequiredService<IConfiguration>();
-            string engine = config["Aetheris:Persistence:Engine"] ?? "IN_MEMORY";
-
-            if (string.Equals(engine, "MYSQL", StringComparison.OrdinalIgnoreCase))
-                return new MySqlBenchmarkAdapter();
-            if (string.Equals(engine, "MONGODB", StringComparison.OrdinalIgnoreCase))
-                return new MongoBenchmarkAdapter();
-
-            return sp.GetRequiredService<InMemoryBenchmarkAdapter>();
+            "MYSQL" => new MySqlBenchmarkAdapter(sp.GetRequiredService<MySqlConnectionContext>()),
+            "MONGODB" => new MongoBenchmarkAdapter(sp.GetRequiredService<MongoConnectionContext>()),
+            _ => sp.GetRequiredService<InMemoryBenchmarkAdapter>()
         });
 
         builder.Services.AddSingleton<PresetBundleCodec>();

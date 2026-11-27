@@ -29,7 +29,7 @@ public class BenchmarkApplicationService
         {
             throw new PersistenceUnavailableException(
                 _benchmarkRepository.AdapterType,
-                $"The configured {_benchmarkRepository.AdapterType} benchmark persistence adapter is unavailable in Phase 3.");
+                $"The configured {_benchmarkRepository.AdapterType} benchmark persistence adapter is unavailable.");
         }
     }
 
@@ -55,7 +55,7 @@ public class BenchmarkApplicationService
             {
                 throw new PersistenceUnavailableException(
                     _presetRepository.AdapterType,
-                    $"The configured {_presetRepository.AdapterType} preset persistence adapter is unavailable in Phase 3.");
+                    $"The configured {_presetRepository.AdapterType} preset persistence adapter is unavailable.");
             }
 
             GridValidator.ValidateResourceId(presetId, "Preset");

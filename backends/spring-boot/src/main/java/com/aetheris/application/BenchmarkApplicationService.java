@@ -33,7 +33,7 @@ public class BenchmarkApplicationService {
         if (!benchmarkRepository.isAvailable()) {
             throw new PersistenceUnavailableException(
                     benchmarkRepository.getAdapterType(),
-                    "The configured " + benchmarkRepository.getAdapterType() + " benchmark persistence adapter is unavailable in Phase 3."
+                    "The configured " + benchmarkRepository.getAdapterType() + " benchmark persistence adapter is unavailable."
             );
         }
     }
