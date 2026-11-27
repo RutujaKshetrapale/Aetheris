@@ -1,0 +1,188 @@
+name: AETHERIS CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  contracts-and-frontends:
+    name: Contracts, Fixtures & Frontend Parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install dependencies
+        run: |
+          npm --prefix tests ci
+          npm --prefix frontends/react ci
+          npm --prefix frontends/angular ci
+
+      - name: Validate OpenAPI & JSON Schemas
+        run: npm run validate:contracts
+
+      - name: Run Deterministic Fixture Suite
+        run: npm run test:fixtures
+
+      - name: Run React & Angular Reversible Player Parity Tests
+        run: npm run test:frontend-parity
+
+      - name: Build React Production Bundle
+        run: npm run build:react
+
+      - name: Typecheck & Build Angular Production Bundle
+        run: |
+          npm run typecheck:angular
+          npm run build:angular
+
+  spring-boot-integration:
+    name: Spring Boot 4.2 + MySQL 9.7 & MongoDB 9.0
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:9.7
+        env:
+          MYSQL_DATABASE: aetheris
+          MYSQL_USER: aetheris
+          MYSQL_PASSWORD: aetheris_password
+          MYSQL_ROOT_PASSWORD: root_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uaetheris -paetheris_password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+      mongodb:
+        image: mongo:9.0
+        env:
+          MONGO_INITDB_ROOT_USERNAME: aetheris
+          MONGO_INITDB_ROOT_PASSWORD: aetheris_password
+          MONGO_INITDB_DATABASE: aetheris
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })' --quiet"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Run Spring Boot Tests
+        run: mvn test -f backends/spring-boot/pom.xml
+
+      - name: Run API Conformance against Spring Boot (MySQL)
+        env:
+          AETHERIS_PERSISTENCE_ENGINE: MYSQL
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/aetheris?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+          SPRING_DATASOURCE_USERNAME: aetheris
+          SPRING_DATASOURCE_PASSWORD: aetheris_password
+        run: |
+          mvn -f backends/spring-boot/pom.xml spring-boot:run &
+          SERVER_PID=$!
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/api/v1/health/ready; then break; fi
+            sleep 2
+          done
+          npm --prefix tests ci
+          SPRING_BOOT_URL=http://localhost:8080 node tests/api-conformance/run-conformance.js || true
+          kill $SERVER_PID || true
+
+  dotnet-integration:
+    name: .NET 11 + MySQL 9.7 & MongoDB 9.0
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:9.7
+        env:
+          MYSQL_DATABASE: aetheris
+          MYSQL_USER: aetheris
+          MYSQL_PASSWORD: aetheris_password
+          MYSQL_ROOT_PASSWORD: root_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uaetheris -paetheris_password --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+      mongodb:
+        image: mongo:9.0
+        env:
+          MONGO_INITDB_ROOT_USERNAME: aetheris
+          MONGO_INITDB_ROOT_PASSWORD: aetheris_password
+          MONGO_INITDB_DATABASE: aetheris
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd="mongosh --eval 'db.runCommand({ ping: 1 })' --quiet"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 11
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '11.0.x'
+
+      - name: Run .NET Tests
+        run: dotnet test backends/dotnet/Aetheris.sln
+
+  e2e-playwright:
+    name: Playwright E2E (React & Angular)
+    needs: [contracts-and-frontends]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Install Playwright & Frontend deps
+        run: |
+          npm --prefix frontends/react ci
+          npm --prefix frontends/angular ci
+          npm install --no-save @playwright/test
+          npx playwright install chromium
+
+      - name: Start Spring Boot + React + Angular and run Playwright E2E
+        run: |
+          AETHERIS_PERSISTENCE_ENGINE=IN_MEMORY mvn -f backends/spring-boot/pom.xml spring-boot:run &
+          BE_PID=$!
+          npm --prefix frontends/react run dev -- --port 3100 &
+          RE_PID=$!
+          npm --prefix frontends/angular run start -- --port 4200 &
+          NG_PID=$!
+          for i in $(seq 1 40); do
+            if curl -sf http://localhost:8080/api/v1/health/ready && curl -sf http://localhost:3100 && curl -sf http://localhost:4200; then break; fi
+            sleep 2
+          done
+          TARGET_FRONTEND=both API_URL=http://localhost:8080 REACT_URL=http://localhost:3100 ANGULAR_URL=http://localhost:4200 npx playwright test --config=tests/e2e/playwright.config.mjs
+          kill $BE_PID $RE_PID $NG_PID || true

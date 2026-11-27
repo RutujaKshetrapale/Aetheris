@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   AlgorithmInfo,
@@ -12,16 +12,74 @@ import {
   PathfindingRequest,
   PathfindingResponse,
   ProbeStatus,
+  ProblemDetails,
   SavePresetRequest
 } from '../models/contract.models';
+
+declare global {
+  interface Window {
+    __AETHERIS_API_BASE_URL__?: string;
+  }
+}
+
+export function normalizeApiBaseUrl(originOrBaseUrl?: string): string {
+  const configured = (originOrBaseUrl ?? '').trim();
+  if (!configured) {
+    return '/api/v1';
+  }
+  const trimmed = configured.replace(/\/+$/, '');
+  if (trimmed.endsWith('/api/v1')) {
+    return trimmed;
+  }
+  return `${trimmed}/api/v1`;
+}
+
+export function formatHttpError(err: unknown, activeBaseUrl: string, fallbackMessage: string): string {
+  if (err instanceof HttpErrorResponse) {
+    if (err.status === 0) {
+      return `Backend API unreachable (${activeBaseUrl}). Verify the backend server is running or explicitly switch to Offline Local Engine (Dev) mode.`;
+    }
+    const problem = err.error as ProblemDetails | string | null;
+    if (problem && typeof problem === 'object' && ('title' in problem || 'detail' in problem)) {
+      const title = problem.title || `HTTP ${err.status}`;
+      const detail = problem.detail || err.message;
+      return `HTTP ${problem.status || err.status} • ${title}: ${detail}`;
+    }
+    if (typeof problem === 'string') {
+      try {
+        const parsed = JSON.parse(problem) as ProblemDetails;
+        if (parsed && (parsed.title || parsed.detail)) {
+          return `HTTP ${parsed.status || err.status} • ${parsed.title}: ${parsed.detail || err.message}`;
+        }
+      } catch {
+        return `HTTP ${err.status}: ${problem || err.statusText}`;
+      }
+    }
+    return `HTTP ${err.status}: ${err.statusText || err.message}`;
+  }
+  if (err instanceof Error) return err.message;
+  return fallbackMessage;
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class PathfindingApiService {
-  private readonly baseUrl = '/api/v1';
+  private baseUrl: string;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    const initial =
+      typeof window !== 'undefined' ? window.__AETHERIS_API_BASE_URL__ : undefined;
+    this.baseUrl = normalizeApiBaseUrl(initial);
+  }
+
+  getApiBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  setApiBaseUrl(originOrBaseUrl?: string): void {
+    this.baseUrl = normalizeApiBaseUrl(originOrBaseUrl);
+  }
 
   getHealth(): Observable<HealthStatus> {
     return this.http.get<HealthStatus>(`${this.baseUrl}/health`);

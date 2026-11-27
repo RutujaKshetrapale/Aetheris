@@ -2,10 +2,11 @@
   "name": "aetheris-tests",
   "version": "2.1.0",
   "private": true,
-  "description": "AETHERIS Contract and Fixture Test Suite",
+  "description": "AETHERIS Contract, Fixture, Parity, and E2E Test Suite",
   "scripts": {
     "validate:contracts": "node contract-validation/validate.js",
     "test:fixtures": "node fixture-runner/run-fixtures.js",
+    "test:frontend-parity": "node --test frontend-parity/reversible-player.test.js",
     "test:conformance": "node api-conformance/run-conformance.js"
   },
   "dependencies": {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AlgorithmType } from '../types/contract';
 import {
   Play,
@@ -13,7 +13,8 @@ import {
   Flag,
   Eraser,
   Trash2,
-  Sparkles
+  Sparkles,
+  ChevronsLeft
 } from 'lucide-react';
 
 export type ToolType = 'WALL' | 'WEIGHTED' | 'START' | 'TARGET' | 'ERASER';
@@ -25,10 +26,15 @@ interface AlgorithmControlsProps {
   onSelectTool: (tool: ToolType) => void;
   weightValue: number;
   onWeightChange: (val: number) => void;
+  rows: number;
+  cols: number;
+  onResizeGrid: (rows: number, cols: number) => void;
   onExecute: () => void;
   onReset: () => void;
+  onResetPlayback: () => void;
   onClearWalls: () => void;
   onClearWeights: () => void;
+  onClearAll: () => void;
   onLoadPreset: (name: 'canonical' | 'divergence' | 'large') => void;
   isPlaying: boolean;
   onTogglePlay: () => void;
@@ -49,10 +55,15 @@ export const AlgorithmControls: React.FC<AlgorithmControlsProps> = ({
   onSelectTool,
   weightValue,
   onWeightChange,
+  rows,
+  cols,
+  onResizeGrid,
   onExecute,
   onReset,
+  onResetPlayback,
   onClearWalls,
   onClearWeights,
+  onClearAll,
   onLoadPreset,
   isPlaying,
   onTogglePlay,
@@ -65,211 +76,261 @@ export const AlgorithmControls: React.FC<AlgorithmControlsProps> = ({
   onSpeedChange,
   isLoading
 }) => {
+  const [draftRows, setDraftRows] = useState<number>(rows);
+  const [draftCols, setDraftCols] = useState<number>(cols);
+
+  useEffect(() => {
+    setDraftRows(rows);
+    setDraftCols(cols);
+  }, [rows, cols]);
+
   const algorithms: { type: AlgorithmType; label: string; desc: string }[] = [
     { type: 'BFS', label: 'BFS', desc: 'FIFO Queue • Shortest Hops' },
     { type: 'DFS', label: 'DFS', desc: 'LIFO Stack • Deterministic' },
-    { type: 'DIJKSTRA', label: 'Dijkstra', desc: 'Min-Heap • Optimal Terrain' },
-    { type: 'ASTAR', label: 'A*', desc: 'f = g + h • Guided Search' }
+    { type: 'DIJKSTRA', label: 'Dijkstra', desc: 'Indexed Min-Heap • Weighted Optimal' },
+    { type: 'ASTAR', label: 'A*', desc: 'f = g + h • Manhattan Guided' }
   ];
 
   const tools: { type: ToolType; label: string; icon: React.ReactNode }[] = [
-    { type: 'WALL', label: 'Wall', icon: <Square className="w-3.5 h-3.5 fill-current" /> },
+    { type: 'WALL', label: 'Wall', icon: <Square className="w-3.5 h-3.5" /> },
     { type: 'WEIGHTED', label: 'Weight', icon: <Flame className="w-3.5 h-3.5" /> },
-    { type: 'START', label: 'Start', icon: <MapPin className="w-3.5 h-3.5 text-emerald-400" /> },
-    { type: 'TARGET', label: 'Target', icon: <Flag className="w-3.5 h-3.5 text-rose-400" /> },
+    { type: 'START', label: 'Start', icon: <MapPin className="w-3.5 h-3.5 text-emerald" /> },
+    { type: 'TARGET', label: 'Target', icon: <Flag className="w-3.5 h-3.5 text-rose" /> },
     { type: 'ERASER', label: 'Eraser', icon: <Eraser className="w-3.5 h-3.5" /> }
   ];
 
+  const handleApplyDimensions = () => {
+    const r = Math.max(2, Math.min(50, Math.floor(draftRows || 5)));
+    const c = Math.max(2, Math.min(50, Math.floor(draftCols || 5)));
+    setDraftRows(r);
+    setDraftCols(c);
+    onResizeGrid(r, c);
+  };
+
   return (
-    <div className="flex flex-col gap-4 p-5 bg-slate-900/60 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
+    <section className="panel" data-testid="algorithm-controls">
       {/* 1. Algorithm Selection Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+      <div className="algo-grid">
         {algorithms.map((algo) => {
           const isSelected = selectedAlgorithm === algo.type;
           return (
             <button
               key={algo.type}
+              type="button"
+              data-testid={`algo-${algo.type}`}
               onClick={() => onSelectAlgorithm(algo.type)}
-              className={`flex flex-col items-start p-3 rounded-xl border text-left transition-all ${
-                isSelected
-                  ? 'bg-amber-500/15 border-amber-500/80 shadow-lg shadow-amber-500/10'
-                  : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
-              }`}
+              className={`algo-card ${isSelected ? 'active' : ''}`}
             >
-              <span className={`text-sm font-bold ${isSelected ? 'text-amber-400 font-serif' : 'text-slate-200'}`}>
-                {algo.label}
-              </span>
-              <span className="text-[11px] text-slate-400 mt-0.5">{algo.desc}</span>
+              <span className="algo-card-title">{algo.label}</span>
+              <span className="algo-card-desc">{algo.desc}</span>
             </button>
           );
         })}
       </div>
 
-      {/* 2. Grid Editing Tools & Benchmarks */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-[10px] uppercase font-mono tracking-wider text-slate-400 mr-1.5">
-            Editing Tool:
-          </span>
-          {tools.map((t) => {
-            const isActive = activeTool === t.type;
-            return (
-              <button
-                key={t.type}
-                onClick={() => onSelectTool(t.type)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all border ${
-                  isActive
-                    ? 'bg-amber-500/20 border-amber-500 text-amber-300 font-bold'
-                    : 'bg-slate-950/60 border-slate-800 hover:border-slate-700 text-slate-300'
-                }`}
-              >
-                {t.icon}
-                <span>{t.label}</span>
-              </button>
-            );
-          })}
+      {/* 2. Grid Editing Tools, Dimensions & Quick Templates */}
+      <div className="toolbar-row panel-divider">
+        <div className="toolbar-group">
+          <span className="toolbar-label">Tool:</span>
+          {tools.map((t) => (
+            <button
+              key={t.type}
+              type="button"
+              data-testid={`tool-${t.type}`}
+              onClick={() => onSelectTool(t.type)}
+              className={`btn ${activeTool === t.type ? 'btn-active' : ''}`}
+            >
+              {t.icon}
+              <span>{t.label}</span>
+            </button>
+          ))}
 
           {activeTool === 'WEIGHTED' && (
-            <div className="flex items-center gap-1 ml-2 bg-slate-950/80 px-2 py-1 rounded-lg border border-slate-800">
-              <span className="text-[10px] text-amber-400 font-mono">Weight:</span>
+            <div className="toolbar-group" style={{ marginLeft: '0.4rem' }}>
+              <span className="toolbar-label text-gold">Weight:</span>
               {[2, 5, 15, 50].map((w) => (
                 <button
                   key={w}
+                  type="button"
                   onClick={() => onWeightChange(w)}
-                  className={`px-1.5 py-0.5 text-[10px] font-mono rounded ${
-                    weightValue === w ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-400 hover:text-white'
-                  }`}
+                  className={`btn ${weightValue === w ? 'btn-active' : ''}`}
+                  style={{ padding: '0.25rem 0.5rem' }}
                 >
                   {w}
                 </button>
               ))}
+              <input
+                type="number"
+                min={2}
+                max={100}
+                value={weightValue}
+                onChange={(e) => {
+                  const val = Math.max(2, Math.min(100, Number(e.target.value) || 2));
+                  onWeightChange(val);
+                }}
+                aria-label="Custom cell weight"
+                className="input input-sm"
+              />
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => onLoadPreset('canonical')}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-950/80 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-mono border border-slate-800"
-            title="Load Canonical 5x5 Benchmark"
-          >
-            <Sparkles className="w-3 h-3 text-amber-400" />
-            <span>5x5 Benchmark</span>
+        <div className="toolbar-group">
+          <span className="toolbar-label">Size:</span>
+          <input
+            type="number"
+            min={2}
+            max={50}
+            value={draftRows}
+            onChange={(e) => setDraftRows(Number(e.target.value))}
+            aria-label="Grid rows"
+            data-testid="grid-rows-input"
+            className="input input-sm"
+          />
+          <span className="text-muted font-mono">×</span>
+          <input
+            type="number"
+            min={2}
+            max={50}
+            value={draftCols}
+            onChange={(e) => setDraftCols(Number(e.target.value))}
+            aria-label="Grid columns"
+            data-testid="grid-cols-input"
+            className="input input-sm"
+          />
+          <button type="button" onClick={handleApplyDimensions} data-testid="apply-grid-size" className="btn">
+            Resize
           </button>
-          <button
-            onClick={() => onLoadPreset('divergence')}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-950/80 hover:bg-slate-800 text-slate-300 rounded-lg text-xs font-mono border border-slate-800"
-            title="Load Divergence Grid"
-          >
-            <span>Divergence Grid</span>
+        </div>
+      </div>
+
+      <div className="toolbar-row">
+        <div className="toolbar-group">
+          <span className="toolbar-label">Templates:</span>
+          <button type="button" onClick={() => onLoadPreset('canonical')} className="btn">
+            <Sparkles className="w-3 h-3 text-gold" />
+            <span>5×5 Canonical</span>
           </button>
-          <button
-            onClick={onClearWalls}
-            className="flex items-center gap-1 px-2 py-1.5 bg-slate-950/80 hover:bg-slate-800 text-slate-400 hover:text-rose-300 rounded-lg text-xs font-mono border border-slate-800"
-            title="Clear Walls"
-          >
+          <button type="button" onClick={() => onLoadPreset('divergence')} className="btn">
+            <span>3×4 Divergence</span>
+          </button>
+          <button type="button" onClick={() => onLoadPreset('large')} className="btn">
+            <span>8×8 Maze</span>
+          </button>
+        </div>
+
+        <div className="toolbar-group">
+          <button type="button" onClick={onClearWalls} className="btn">
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Walls</span>
+            <span>Clear Walls</span>
           </button>
-          <button
-            onClick={onClearWeights}
-            className="flex items-center gap-1 px-2 py-1.5 bg-slate-950/80 hover:bg-slate-800 text-slate-400 hover:text-amber-300 rounded-lg text-xs font-mono border border-slate-800"
-            title="Clear Weights"
-          >
+          <button type="button" onClick={onClearWeights} className="btn">
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Weights</span>
+            <span>Clear Weights</span>
+          </button>
+          <button type="button" onClick={onClearAll} className="btn btn-danger">
+            <span>Clear Grid</span>
           </button>
         </div>
       </div>
 
       {/* 3. Execution & Reversible Playback Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
-        <div className="flex items-center gap-2">
+      <div className="toolbar-row panel-divider">
+        <div className="toolbar-group">
           <button
+            type="button"
+            data-testid="run-algorithm-btn"
             onClick={onExecute}
             disabled={isLoading}
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs uppercase tracking-wider rounded-lg shadow-md shadow-amber-500/10 transition-all active:scale-95 disabled:opacity-50"
+            className="btn btn-primary"
           >
-            <Zap className="w-4 h-4 fill-current" />
+            <Zap className="w-4 h-4" />
             <span>{isLoading ? 'Computing...' : 'Run Pathfinding'}</span>
           </button>
 
-          <button
-            onClick={onReset}
-            className="flex items-center gap-1.5 px-3 py-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-all active:scale-95"
-            title="Reset Grid"
-          >
+          <button type="button" data-testid="reset-grid-btn" onClick={onReset} className="btn">
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset</span>
+            <span>Reset Trace</span>
           </button>
         </div>
 
-        {/* Reversible Timeline Playback Controls */}
-        <div className="flex flex-1 items-center gap-3 bg-slate-950/90 px-4 py-2 rounded-xl border border-slate-800/90 max-w-lg">
+        <div className="playback-bar">
           <button
+            type="button"
+            data-testid="playback-reset-btn"
+            onClick={onResetPlayback}
+            disabled={totalSteps === 0}
+            className="btn"
+            title="Seek to initial state (-1)"
+          >
+            <ChevronsLeft className="w-4 h-4" />
+          </button>
+
+          <button
+            type="button"
+            data-testid="playback-back-btn"
             onClick={onStepBackward}
             disabled={currentStep < 0}
-            className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition disabled:opacity-30"
-            title="Step Backward (Apply beforeState)"
+            className="btn"
+            title="Step Backward"
           >
             <SkipBack className="w-4 h-4" />
           </button>
 
           <button
+            type="button"
+            data-testid="playback-play-btn"
             onClick={onTogglePlay}
             disabled={totalSteps === 0}
-            className="p-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded transition disabled:opacity-30"
-            title={isPlaying ? 'Pause' : 'Play Trace Animation'}
+            className="btn btn-active"
+            title={isPlaying ? 'Pause' : 'Play'}
           >
-            {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            <span>{isPlaying ? 'Pause' : 'Play'}</span>
           </button>
 
           <button
+            type="button"
+            data-testid="playback-forward-btn"
             onClick={onStepForward}
             disabled={currentStep + 1 >= totalSteps}
-            className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-white rounded transition disabled:opacity-30"
-            title="Step Forward (Apply afterState)"
+            className="btn"
+            title="Step Forward"
           >
             <SkipForward className="w-4 h-4" />
           </button>
 
-          {/* Timeline Scrubber */}
-          <div className="flex-1 flex items-center gap-2">
-            <input
-              type="range"
-              min={-1}
-              max={Math.max(0, totalSteps - 1)}
-              value={currentStep}
-              onChange={(e) => onScrub(Number(e.target.value))}
-              disabled={totalSteps === 0}
-              className="w-full accent-amber-500 h-1.5 bg-slate-800 rounded-lg cursor-pointer disabled:opacity-30"
-            />
-            <span className="text-[11px] font-mono text-slate-400 whitespace-nowrap min-w-[55px] text-right">
-              {currentStep >= 0 ? `${currentStep + 1}/${totalSteps}` : `0/${totalSteps}`}
-            </span>
-          </div>
+          <input
+            type="range"
+            data-testid="playback-scrubber"
+            min={-1}
+            max={Math.max(0, totalSteps - 1)}
+            value={currentStep}
+            onChange={(e) => onScrub(Number(e.target.value))}
+            disabled={totalSteps === 0}
+            aria-label="Trace step scrubber"
+            className="scrubber"
+          />
 
-          {/* Speed Selector */}
-          <div className="flex items-center gap-1 border-l border-slate-800 pl-2">
-            {[100, 40, 15].map((spd, idx) => {
-              const labels = ['1x', '2x', '5x'];
-              return (
-                <button
-                  key={spd}
-                  onClick={() => onSpeedChange(spd)}
-                  className={`px-1.5 py-0.5 text-[10px] font-mono rounded ${
-                    playbackSpeed === spd
-                      ? 'bg-amber-500/20 text-amber-400 font-bold border border-amber-500/50'
-                      : 'text-slate-500 hover:text-slate-300'
-                  }`}
-                >
-                  {labels[idx]}
-                </button>
-              );
-            })}
-          </div>
+          <span className="font-mono text-muted" data-testid="playback-step-label" style={{ fontSize: '0.72rem', minWidth: '64px', textAlign: 'right' }}>
+            {currentStep >= 0 ? `${currentStep + 1}/${totalSteps}` : `0/${totalSteps}`}
+          </span>
+
+          <select
+            value={playbackSpeed}
+            onChange={(e) => onSpeedChange(Number(e.target.value))}
+            aria-label="Playback speed"
+            data-testid="playback-speed-select"
+            className="select"
+          >
+            <option value={10}>10 ms/step</option>
+            <option value={30}>30 ms/step</option>
+            <option value={80}>80 ms/step</option>
+            <option value={200}>200 ms/step</option>
+            <option value={500}>500 ms/step</option>
+          </select>
         </div>
       </div>
-    </div>
+    </section>
   );
 };

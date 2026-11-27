@@ -6,9 +6,14 @@
   "scripts": {
     "validate:contracts": "npm --prefix tests run validate:contracts",
     "test:fixtures": "npm --prefix tests run test:fixtures",
+    "test:frontend-parity": "npm --prefix tests run test:frontend-parity",
     "test:conformance": "npm --prefix tests run test:conformance",
     "test:dotnet": "dotnet test backends/dotnet/Aetheris.sln",
     "test:springboot": "mvn test -f backends/spring-boot/pom.xml",
-    "test:all": "npm run validate:contracts && npm run test:fixtures && npm run test:dotnet && npm run test:springboot"
+    "build:react": "npm --prefix frontends/react run build",
+    "build:angular": "npm --prefix frontends/angular run build",
+    "typecheck:angular": "node frontends/angular/node_modules/typescript/bin/tsc --noEmit -p frontends/angular/tsconfig.json",
+    "test:e2e": "playwright test --config=tests/e2e/playwright.config.mjs",
+    "test:all": "npm run validate:contracts && npm run test:fixtures && npm run test:frontend-parity && npm run build:react && npm run typecheck:angular && npm run test:dotnet && npm run test:springboot"
   }
 }

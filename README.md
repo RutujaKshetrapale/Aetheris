@@ -1,7 +1,7 @@
 # AETHERIS — The Art of Algorithmic Thinking
 
 **Architecture Baseline:** Revision 2.1.0  
-**Status:** Phase 1–4 Implemented (Core Engines, Workbenches, Backend APIs, and Real MySQL 9.7 & MongoDB 9.0 Persistence)
+**Status:** Phase 5 Implemented (Full-Stack Integration, React/Angular Parity, Reversible Trace Engine, Presets & Benchmarks Integration, Automated Parity & Playwright E2E Suites, and CI Workflow)
 
 AETHERIS is a cross-platform deterministic pathfinding and algorithmic visualization platform featuring symmetric backend implementations in **Spring Boot 4.2.0 (Java 25)** and **.NET 11 (C# 13)**, paired with **React 19.3.1** (primary workbench) and **Angular 22.3.0** frontends.
 
@@ -201,6 +201,7 @@ The React UI uses the configured backend by default without silent fallback; an 
 ```bash
 npm --prefix frontends/angular run start
 ```
+`frontends/angular/proxy.conf.json` proxies `/api` requests to `http://localhost:8080` during `ng serve`. You can also switch the API base URL directly in the UI header (`Set API URL`) or set `window.__AETHERIS_API_BASE_URL__`. Like React, Angular uses the configured backend by default without silent fallback, and provides an explicit **Offline Local Engine (Dev)** toggle.
 
 ## Test Commands
 
@@ -211,19 +212,53 @@ npm run validate:contracts
 # 2. Deterministic fixture & bidirectional reversibility tests
 npm run test:fixtures
 
-# 3. Spring Boot unit & HTTP integration tests
+# 3. React & Angular reversible trace player parity regression tests (all 16 fixtures)
+npm run test:frontend-parity
+
+# 4. Spring Boot unit & HTTP integration tests
 mvn test -f backends/spring-boot/pom.xml
 
-# 4. .NET 11 unit & HTTP integration tests
+# 5. .NET 11 unit & HTTP integration tests
 dotnet test backends/dotnet/Aetheris.sln
 
-# 5. Live cross-backend HTTP conformance suite (with both backends running on 8080 and 5000)
+# 6. Live cross-backend HTTP conformance suite (with both backends running on 8080 and 5000)
 npm run test:conformance
 
-# 6. Production frontend builds
-npm --prefix frontends/react run build
-npm --prefix frontends/angular run build
+# 7. Production frontend builds & Angular TypeScript check
+npm run build:react
+npm run typecheck:angular
+npm run build:angular
+
+# 8. Playwright End-to-End Suite (requires running backend + frontend(s))
+TARGET_FRONTEND=both API_URL=http://localhost:8080 REACT_URL=http://localhost:3100 ANGULAR_URL=http://localhost:4200 npm run test:e2e
 ```
+
+## Eight-Configuration Matrix
+
+Deployment profiles live in `deployments/configurations/`:
+
+| # | Profile | Frontend | Backend | Database | Compose File |
+|---|---------|----------|---------|----------|--------------|
+| 1 | `react-springboot-mysql` | React 19.3.1 | Spring Boot 4.2.0 | MySQL 9.7 | `deployments/configurations/docker-compose.react-springboot-mysql.yml` |
+| 2 | `react-springboot-mongodb` | React 19.3.1 | Spring Boot 4.2.0 | MongoDB 9.0 | `deployments/configurations/docker-compose.react-springboot-mongodb.yml` |
+| 3 | `react-dotnet-mysql` | React 19.3.1 | .NET 11 | MySQL 9.7 | `deployments/configurations/docker-compose.react-dotnet-mysql.yml` |
+| 4 | `react-dotnet-mongodb` | React 19.3.1 | .NET 11 | MongoDB 9.0 | `deployments/configurations/docker-compose.react-dotnet-mongodb.yml` |
+| 5 | `angular-springboot-mysql` | Angular 22.3.0 | Spring Boot 4.2.0 | MySQL 9.7 | `deployments/configurations/docker-compose.angular-springboot-mysql.yml` |
+| 6 | `angular-springboot-mongodb` | Angular 22.3.0 | Spring Boot 4.2.0 | MongoDB 9.0 | `deployments/configurations/docker-compose.angular-springboot-mongodb.yml` |
+| 7 | `angular-dotnet-mysql` | Angular 22.3.0 | .NET 11 | MySQL 9.7 | `deployments/configurations/docker-compose.angular-dotnet-mysql.yml` |
+| 8 | `angular-dotnet-mongodb` | Angular 22.3.0 | .NET 11 | MongoDB 9.0 | `deployments/configurations/docker-compose.angular-dotnet-mongodb.yml` |
+
+Launch any profile with:
+```powershell
+.\deployments\run-profile.ps1 -Profile 1 -Build
+```
+
+## Known Environment Requirements
+
+- Angular CLI `22.3.0` requires Node.js `v22.22.3+`, `v24.15.0+`, or `v26.0.0+` (or Docker `node:26-alpine`).
+- Spring Boot `4.2.0` requires JDK 25 and Maven Central access (or pre-populated `.m2` cache).
+- .NET `11.0.100` SDK is required to build/test `backends/dotnet/Aetheris.sln` outside Docker.
+- Docker Engine must be running to execute the 8 containerized deployment profiles and MySQL/MongoDB service containers.
 
 ## Verified Dependency Matrix
 

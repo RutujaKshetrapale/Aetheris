@@ -8,16 +8,18 @@ import {
   HealthStatus,
   PathfindingResponse
 } from './types/contract';
-import { AetherisApiClient, ApiError, getApiBaseUrl } from './services/api';
+import { AetherisApiClient, ApiError, getApiBaseUrl, setApiBaseUrl } from './services/api';
 import { executeLocalPathfinding } from './services/localEngine';
 import { useReversibleTrace } from './hooks/useReversibleTrace';
 import { GridCanvas } from './components/GridCanvas';
 import { AlgorithmControls, ToolType } from './components/AlgorithmControls';
 import { MetricsPanel } from './components/MetricsPanel';
+import { TraceInspector } from './components/TraceInspector';
 
 type ExecutionMode = 'BACKEND' | 'LOCAL_OFFLINE';
 
-// Built-in quick grid templates
+const BENCHMARK_HISTORY_KEY = 'aetheris.react.benchmarkIds';
+
 const CANONICAL_5X5: GridModel = {
   rows: 5,
   cols: 5,
@@ -64,10 +66,15 @@ const LARGE_8X8: GridModel = {
   ]
 };
 
+function parseNodeCoords(id: string): { row: number; col: number } {
+  const parts = id.slice(1).split('c');
+  return { row: parseInt(parts[0], 10), col: parseInt(parts[1], 10) };
+}
+
 function formatApiError(err: unknown, fallbackMessage: string): string {
   if (err instanceof ApiError) {
     if (err.isNetworkError) {
-      return `Backend API unreachable (${getApiBaseUrl()}). Verify the backend server is running or switch to Local Offline Engine mode.`;
+      return `Backend API unreachable (${getApiBaseUrl()}). Verify the backend server is running or explicitly switch to Offline Local Engine (Dev) mode.`;
     }
     if (err.problem) {
       return `HTTP ${err.problem.status} • ${err.problem.title}: ${err.problem.detail || err.message}`;
@@ -84,6 +91,7 @@ export const App: React.FC = () => {
   const [activeTool, setActiveTool] = useState<ToolType>('WALL');
   const [weightValue, setWeightValue] = useState<number>(5);
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('BACKEND');
+  const [apiUrlInput, setApiUrlInput] = useState<string>(getApiBaseUrl());
   const [executionSource, setExecutionSource] = useState<string | null>(null);
   const [lastResponse, setLastResponse] = useState<PathfindingResponse | null>(null);
 
@@ -98,10 +106,22 @@ export const App: React.FC = () => {
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [persistenceMessage, setPersistenceMessage] = useState<string | null>(null);
   const [bundlePreview, setBundlePreview] = useState<string>('');
+
+  const [benchmarkNameInput, setBenchmarkNameInput] = useState<string>('');
+  const [benchmarkIdInput, setBenchmarkIdInput] = useState<string>('');
   const [lastBenchmark, setLastBenchmark] = useState<BenchmarkRecord | null>(null);
+  const [recentBenchmarkIds, setRecentBenchmarkIds] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem(BENCHMARK_HISTORY_KEY);
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const {
     grid,
+    snapshot,
     cellStates,
     currentStep,
     totalSteps,
@@ -109,6 +129,7 @@ export const App: React.FC = () => {
     playbackSpeed,
     setPlaybackSpeed,
     resetToGrid,
+    resetToInitialState,
     loadTrace,
     stepForward,
     stepBackward,
@@ -125,6 +146,7 @@ export const App: React.FC = () => {
     } catch (err) {
       setHealth(null);
       setHealthError(formatApiError(err, 'Health check failed'));
+      setPresets([]);
       return;
     }
 
@@ -132,14 +154,12 @@ export const App: React.FC = () => {
       const list = await AetherisApiClient.getPresets();
       setPresets(list);
       setPersistenceError(null);
-      if (list.length > 0 && !selectedPresetId) {
-        setSelectedPresetId(list[0].id);
-      }
+      setSelectedPresetId((prev) => (prev && list.some((p) => p.id === prev) ? prev : list[0]?.id || ''));
     } catch (err) {
       setPresets([]);
       setPersistenceError(formatApiError(err, 'Failed to load presets'));
     }
-  }, [selectedPresetId]);
+  }, []);
 
   useEffect(() => {
     refreshHealthAndPresets();
@@ -156,16 +176,57 @@ export const App: React.FC = () => {
     [resetToGrid]
   );
 
+  const handleResizeGrid = (newRows: number, newCols: number) => {
+    const startCoords = parseNodeCoords(currentGrid.startNode);
+    const targetCoords = parseNodeCoords(currentGrid.targetNode);
+
+    const clampedStartRow = Math.min(startCoords.row, newRows - 1);
+    const clampedStartCol = Math.min(startCoords.col, newCols - 1);
+    let clampedTargetRow = Math.min(targetCoords.row, newRows - 1);
+    let clampedTargetCol = Math.min(targetCoords.col, newCols - 1);
+
+    let nextStart = `r${clampedStartRow}c${clampedStartCol}`;
+    let nextTarget = `r${clampedTargetRow}c${clampedTargetCol}`;
+    if (nextStart === nextTarget) {
+      clampedTargetRow = newRows - 1;
+      clampedTargetCol = newCols - 1;
+      nextTarget = `r${clampedTargetRow}c${clampedTargetCol}`;
+      if (nextStart === nextTarget) {
+        nextStart = 'r0c0';
+      }
+    }
+
+    const keptCells = (currentGrid.cells || []).filter((cell) => {
+      if (cell.row >= newRows || cell.col >= newCols) return false;
+      if (cell.id === nextStart || cell.id === nextTarget) return false;
+      return cell.cellType === 'WALL' || cell.cellType === 'WEIGHTED';
+    });
+
+    const startDef = parseNodeCoords(nextStart);
+    const targetDef = parseNodeCoords(nextTarget);
+
+    updateGridModel({
+      rows: newRows,
+      cols: newCols,
+      startNode: nextStart,
+      targetNode: nextTarget,
+      cells: [
+        { id: nextStart, row: startDef.row, col: startDef.col, cellType: 'START', weight: 1 },
+        { id: nextTarget, row: targetDef.row, col: targetDef.col, cellType: 'TARGET', weight: 1 },
+        ...keptCells
+      ]
+    });
+  };
+
   const handleCellInteract = (id: string) => {
-    const parts = id.slice(1).split('c');
-    const r = parseInt(parts[0], 10);
-    const c = parseInt(parts[1], 10);
+    const { row: r, col: c } = parseNodeCoords(id);
 
     if (activeTool === 'START') {
       if (id === currentGrid.targetNode) return;
       const nextCells = (currentGrid.cells || []).filter(
         (cell) => cell.id !== id && cell.id !== currentGrid.startNode
       );
+      nextCells.push({ id, row: r, col: c, cellType: 'START', weight: 1 });
       updateGridModel({
         ...currentGrid,
         startNode: id,
@@ -179,6 +240,7 @@ export const App: React.FC = () => {
       const nextCells = (currentGrid.cells || []).filter(
         (cell) => cell.id !== id && cell.id !== currentGrid.targetNode
       );
+      nextCells.push({ id, row: r, col: c, cellType: 'TARGET', weight: 1 });
       updateGridModel({
         ...currentGrid,
         targetNode: id,
@@ -201,12 +263,13 @@ export const App: React.FC = () => {
         else existingCells.push(newDef);
       }
     } else if (activeTool === 'WEIGHTED') {
+      const clampedWeight = Math.max(2, Math.min(100, Math.floor(weightValue || 5)));
       const newDef: CellDefinition = {
         id,
         row: r,
         col: c,
         cellType: 'WEIGHTED',
-        weight: weightValue
+        weight: clampedWeight
       };
       if (cellIdx >= 0) existingCells[cellIdx] = newDef;
       else existingCells.push(newDef);
@@ -230,10 +293,28 @@ export const App: React.FC = () => {
     updateGridModel({ ...currentGrid, cells: filtered });
   };
 
-  const handleLoadPreset = (name: 'canonical' | 'divergence' | 'large') => {
+  const handleClearAll = () => {
+    const s = parseNodeCoords(currentGrid.startNode);
+    const t = parseNodeCoords(currentGrid.targetNode);
+    updateGridModel({
+      ...currentGrid,
+      cells: [
+        { id: currentGrid.startNode, row: s.row, col: s.col, cellType: 'START', weight: 1 },
+        { id: currentGrid.targetNode, row: t.row, col: t.col, cellType: 'TARGET', weight: 1 }
+      ]
+    });
+  };
+
+  const handleLoadTemplate = (name: 'canonical' | 'divergence' | 'large') => {
     if (name === 'canonical') updateGridModel(CANONICAL_5X5);
     else if (name === 'divergence') updateGridModel(DIVERGENCE_3X4);
     else if (name === 'large') updateGridModel(LARGE_8X8);
+  };
+
+  const handleApplyApiUrl = () => {
+    setApiBaseUrl(apiUrlInput);
+    setApiUrlInput(getApiBaseUrl());
+    refreshHealthAndPresets();
   };
 
   const handleExecute = async () => {
@@ -253,11 +334,11 @@ export const App: React.FC = () => {
           algorithm: selectedAlgorithm,
           grid: currentGrid
         });
-        setExecutionSource('Local Offline Engine (Client-Side Dev Mode)');
+        setExecutionSource('Offline Local Engine (Explicit Dev Mode)');
       }
 
       setLastResponse(res);
-      loadTrace(res.traceDeltas, res.keyframes || []);
+      loadTrace(res.algorithm, res.traceDeltas, res.keyframes || []);
       setIsPlaying(true);
     } catch (err) {
       setLastResponse(null);
@@ -278,6 +359,7 @@ export const App: React.FC = () => {
       setPersistenceError(null);
       setPersistenceMessage(null);
       const preset = await AetherisApiClient.getPreset(selectedPresetId);
+      setPresetNameInput(preset.name);
       updateGridModel(preset.grid);
       setPersistenceMessage(`Loaded preset "${preset.name}" (${preset.id}).`);
     } catch (err) {
@@ -285,7 +367,7 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleSavePreset = async () => {
+  const handleCreatePreset = async () => {
     try {
       setPersistenceError(null);
       setPersistenceMessage(null);
@@ -296,22 +378,41 @@ export const App: React.FC = () => {
       });
       setPresets((prev) => [...prev, created]);
       setSelectedPresetId(created.id);
-      setPersistenceMessage(`Saved preset "${created.name}" (${created.id}).`);
+      setPersistenceMessage(`Created preset "${created.name}" (${created.id}).`);
     } catch (err) {
-      setPersistenceError(formatApiError(err, 'Failed to save preset'));
+      setPersistenceError(formatApiError(err, 'Failed to create preset'));
+    }
+  };
+
+  const handleUpdatePreset = async () => {
+    if (!selectedPresetId) return;
+    try {
+      setPersistenceError(null);
+      setPersistenceMessage(null);
+      const updated = await AetherisApiClient.updatePreset(selectedPresetId, {
+        id: selectedPresetId,
+        name: presetNameInput.trim() || 'Updated Grid Preset',
+        description: `Updated from React workbench (${currentGrid.rows}x${currentGrid.cols})`,
+        grid: currentGrid
+      });
+      setPresets((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
+      setPersistenceMessage(`Updated preset "${updated.name}" (${updated.id}).`);
+    } catch (err) {
+      setPersistenceError(formatApiError(err, 'Failed to update preset'));
     }
   };
 
   const handleDeletePreset = async () => {
     if (!selectedPresetId) return;
+    const targetId = selectedPresetId;
     try {
       setPersistenceError(null);
       setPersistenceMessage(null);
-      await AetherisApiClient.deletePreset(selectedPresetId);
-      const remaining = presets.filter((p) => p.id !== selectedPresetId);
+      await AetherisApiClient.deletePreset(targetId);
+      const remaining = presets.filter((p) => p.id !== targetId);
       setPresets(remaining);
       setSelectedPresetId(remaining.length > 0 ? remaining[0].id : '');
-      setPersistenceMessage(`Deleted preset ${selectedPresetId}.`);
+      setPersistenceMessage(`Deleted preset ${targetId}.`);
     } catch (err) {
       setPersistenceError(formatApiError(err, 'Failed to delete preset'));
     }
@@ -329,9 +430,28 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleDownloadBundle = () => {
+    if (!bundlePreview.trim()) return;
+    const blob = new Blob([bundlePreview], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'aetheris-presets.bundle.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    setBundlePreview(text);
+    e.target.value = '';
+  };
+
   const handleImportPresets = async () => {
     if (!bundlePreview.trim()) {
-      setPersistenceError('Paste a canonical preset bundle JSON before importing.');
+      setPersistenceError('Paste or upload a canonical preset bundle JSON before importing.');
       return;
     }
     try {
@@ -340,6 +460,9 @@ export const App: React.FC = () => {
       const res = await AetherisApiClient.importPresets(bundlePreview);
       const list = await AetherisApiClient.getPresets();
       setPresets(list);
+      if (list.length > 0 && !selectedPresetId) {
+        setSelectedPresetId(list[0].id);
+      }
       setPersistenceMessage(`Imported ${res.importedCount} preset(s) from bundle.`);
     } catch (err) {
       setPersistenceError(formatApiError(err, 'Failed to import preset bundle'));
@@ -351,41 +474,55 @@ export const App: React.FC = () => {
       setPersistenceError(null);
       setPersistenceMessage(null);
       const record = await AetherisApiClient.runBenchmark({
-        name: `${selectedAlgorithm} ${currentGrid.rows}x${currentGrid.cols}`,
+        name: benchmarkNameInput.trim() || `${selectedAlgorithm} ${currentGrid.rows}x${currentGrid.cols}`,
         algorithm: selectedAlgorithm,
         grid: currentGrid
       });
       setLastBenchmark(record);
-      setPersistenceMessage(`Benchmark recorded: ${record.id} (${record.executionTimeMs} ms).`);
+      setBenchmarkIdInput(record.id);
+      const nextIds = [record.id, ...recentBenchmarkIds.filter((id) => id !== record.id)].slice(0, 10);
+      setRecentBenchmarkIds(nextIds);
+      try {
+        localStorage.setItem(BENCHMARK_HISTORY_KEY, JSON.stringify(nextIds));
+      } catch {
+        // ignore storage quota errors
+      }
+      setPersistenceMessage(`Benchmark recorded: ${record.id} (Backend exec: ${record.executionTimeMs} ms).`);
     } catch (err) {
       setPersistenceError(formatApiError(err, 'Failed to record benchmark'));
     }
   };
 
+  const handleRetrieveBenchmark = async (idToFetch?: string) => {
+    const id = (idToFetch ?? benchmarkIdInput).trim();
+    if (!id) {
+      setPersistenceError('Enter a benchmark ID to retrieve.');
+      return;
+    }
+    try {
+      setPersistenceError(null);
+      setPersistenceMessage(null);
+      const record = await AetherisApiClient.getBenchmark(id);
+      setLastBenchmark(record);
+      setBenchmarkIdInput(record.id);
+      setPersistenceMessage(`Retrieved benchmark ${record.id}.`);
+    } catch (err) {
+      setPersistenceError(formatApiError(err, 'Failed to retrieve benchmark'));
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-8 px-4 sm:px-6 lg:px-8">
-      {/* Header */}
-      <header className="max-w-5xl w-full flex flex-col items-center text-center mb-6">
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest bg-amber-500/10 text-amber-400 border border-amber-500/30 uppercase">
-            React 19.3.1 • OpenAPI 3.2.0
-          </span>
-          <span
-            className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest border ${
-              health
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-            }`}
-          >
+    <div className="aetheris-shell">
+      <header className="aetheris-header">
+        <div className="badge-row">
+          <span className="badge badge-gold">React 19.3.1 • OpenAPI 3.2.0</span>
+          <span className={`badge ${health ? 'badge-emerald' : 'badge-rose'}`} data-testid="backend-health-badge">
             Backend: {health ? `${health.platform} (${health.engineStatus})` : 'Unavailable'}
           </span>
           {health && (
             <span
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono tracking-widest border ${
-                health.persistenceStatus === 'UP'
-                  ? 'bg-sky-500/10 text-sky-300 border-sky-500/30'
-                  : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-              }`}
+              className={`badge ${health.persistenceStatus === 'UP' ? 'badge-sky' : 'badge-gold'}`}
+              data-testid="persistence-health-badge"
             >
               Persistence: {health.persistenceEngine} ({health.persistenceStatus}) • DB Connected:{' '}
               {health.databaseConnected ? 'true' : 'false'}
@@ -393,56 +530,55 @@ export const App: React.FC = () => {
           )}
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-bold font-serif text-slate-100 mt-2 tracking-wide">
-          AETHERIS
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl font-light">
-          The Art of Algorithmic Thinking • Deterministic Cross-Platform Pathfinding & Reversible Trace Engine
+        <h1 className="aetheris-title">AETHERIS</h1>
+        <p className="aetheris-subtitle">
+          The Art of Algorithmic Thinking • Deterministic Cross-Platform Pathfinding &amp; Reversible Trace Workbench
         </p>
 
-        {/* Execution Mode Switcher & Source Indicator */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
-          <div className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800 text-xs font-mono">
-            <button
-              onClick={() => setExecutionMode('BACKEND')}
-              className={`px-3 py-1 rounded-md transition ${
-                executionMode === 'BACKEND'
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 font-bold'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Backend API ({getApiBaseUrl()})
-            </button>
-            <button
-              onClick={() => setExecutionMode('LOCAL_OFFLINE')}
-              className={`px-3 py-1 rounded-md transition ${
-                executionMode === 'LOCAL_OFFLINE'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 font-bold'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Offline Local Engine (Dev)
-            </button>
-          </div>
+        <div className="toolbar-group" style={{ marginTop: '0.4rem', justifyContent: 'center' }}>
           <button
-            onClick={refreshHealthAndPresets}
-            className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-slate-700 text-[11px] font-mono text-slate-300"
+            type="button"
+            data-testid="mode-backend-btn"
+            onClick={() => setExecutionMode('BACKEND')}
+            className={`btn ${executionMode === 'BACKEND' ? 'btn-active' : ''}`}
           >
+            Backend API ({getApiBaseUrl()})
+          </button>
+          <button
+            type="button"
+            data-testid="mode-local-btn"
+            onClick={() => setExecutionMode('LOCAL_OFFLINE')}
+            className={`btn ${executionMode === 'LOCAL_OFFLINE' ? 'btn-active' : ''}`}
+          >
+            Offline Local Engine (Dev)
+          </button>
+          <input
+            type="text"
+            value={apiUrlInput}
+            onChange={(e) => setApiUrlInput(e.target.value)}
+            aria-label="Backend API base URL"
+            data-testid="api-url-input"
+            className="input"
+            style={{ width: '210px' }}
+          />
+          <button type="button" onClick={handleApplyApiUrl} className="btn">
+            Set API URL
+          </button>
+          <button type="button" onClick={refreshHealthAndPresets} data-testid="refresh-health-btn" className="btn">
             Refresh Health
           </button>
         </div>
 
         {executionSource && (
-          <div className="mt-2 px-3 py-1 rounded-full text-[11px] font-mono bg-slate-900 border border-slate-700 text-slate-300">
-            Last Execution Source: <span className="text-amber-300 font-bold">{executionSource}</span>
+          <div className="badge" data-testid="execution-source-badge">
+            Last Execution Source: <strong className="text-gold">{executionSource}</strong>
           </div>
         )}
       </header>
 
-      {/* Main Content Area */}
-      <main className="max-w-5xl w-full flex flex-col gap-5">
+      <main className="aetheris-container">
         {healthError && executionMode === 'BACKEND' && (
-          <div className="p-3 bg-amber-950/50 border border-amber-700/70 rounded-xl text-amber-200 text-xs font-mono">
+          <div className="alert alert-warning" data-testid="health-error-banner">
             Health Notice: {healthError}
           </div>
         )}
@@ -454,11 +590,16 @@ export const App: React.FC = () => {
           onSelectTool={setActiveTool}
           weightValue={weightValue}
           onWeightChange={setWeightValue}
+          rows={currentGrid.rows}
+          cols={currentGrid.cols}
+          onResizeGrid={handleResizeGrid}
           onExecute={handleExecute}
           onReset={handleReset}
+          onResetPlayback={resetToInitialState}
           onClearWalls={handleClearWalls}
           onClearWeights={handleClearWeights}
-          onLoadPreset={handleLoadPreset}
+          onClearAll={handleClearAll}
+          onLoadPreset={handleLoadTemplate}
           isPlaying={isPlaying}
           onTogglePlay={togglePlay}
           onStepForward={stepForward}
@@ -472,7 +613,7 @@ export const App: React.FC = () => {
         />
 
         {error && (
-          <div className="p-4 bg-rose-950/60 border border-rose-800 rounded-xl text-rose-300 text-xs font-mono">
+          <div className="alert alert-error" data-testid="pathfinding-error-banner">
             Pathfinding Error: {error}
           </div>
         )}
@@ -480,132 +621,256 @@ export const App: React.FC = () => {
         <MetricsPanel
           metrics={lastResponse?.metrics ?? null}
           algorithm={lastResponse?.algorithm ?? selectedAlgorithm}
-          pathFound={lastResponse?.pathFound ?? false}
+          pathFound={lastResponse ? lastResponse.pathFound : null}
+          noPathReason={lastResponse?.noPathReason}
           currentStep={currentStep}
           totalSteps={totalSteps}
+          playbackSpeed={playbackSpeed}
         />
 
-        <GridCanvas
-          grid={grid}
-          cellStates={cellStates}
-          onCellInteract={handleCellInteract}
-        />
+        <div className="workbench-grid-layout">
+          <GridCanvas grid={grid} cellStates={cellStates} onCellInteract={handleCellInteract} />
+          <TraceInspector snapshot={snapshot} />
+        </div>
 
-        {/* Backend Persistence & Benchmark Panel (Independent of Core Pathfinding) */}
-        <section className="flex flex-col gap-3 p-5 bg-slate-900/60 rounded-2xl border border-slate-800 shadow-xl backdrop-blur-md">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-serif font-bold text-slate-200 tracking-wide">
-              Backend Presets & Benchmarks
+        {/* Backend Persistence & Benchmark Panel */}
+        <section className="panel" data-testid="persistence-panel">
+          <div className="toolbar-row">
+            <h2 className="font-serif" style={{ fontSize: '1rem', color: '#f8fafc' }}>
+              Backend Presets &amp; Benchmarks
             </h2>
-            <span className="text-[11px] font-mono text-slate-400">
+            <span className="font-mono text-muted" style={{ fontSize: '0.72rem' }}>
               Persistence Adapter: {health ? `${health.persistenceEngine} (${health.persistenceStatus})` : 'Unknown'}
             </span>
           </div>
 
           {persistenceError && (
-            <div className="p-3 bg-amber-950/60 border border-amber-700 rounded-xl text-amber-200 text-xs font-mono">
+            <div className="alert alert-warning" data-testid="persistence-error-banner">
               Persistence Notice (Core Pathfinding Unaffected): {persistenceError}
             </div>
           )}
 
           {persistenceMessage && (
-            <div className="p-3 bg-emerald-950/50 border border-emerald-700/60 rounded-xl text-emerald-300 text-xs font-mono">
+            <div className="alert alert-success" data-testid="persistence-success-banner">
               {persistenceMessage}
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={selectedPresetId}
-              onChange={(e) => setSelectedPresetId(e.target.value)}
-              className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-200"
-            >
-              {presets.length === 0 ? (
-                <option value="">No persisted presets</option>
-              ) : (
-                presets.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.id})
-                  </option>
-                ))
-              )}
-            </select>
-            <button
-              onClick={handleLoadBackendPreset}
-              disabled={!selectedPresetId}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-mono disabled:opacity-40"
-            >
-              Load Preset
-            </button>
-            <button
-              onClick={handleDeletePreset}
-              disabled={!selectedPresetId}
-              className="px-3 py-1.5 bg-rose-950/70 hover:bg-rose-900/70 border border-rose-800/60 text-rose-200 rounded-lg text-xs font-mono disabled:opacity-40"
-            >
-              Delete Preset
-            </button>
+          <div className="toolbar-row">
+            <div className="toolbar-group">
+              <select
+                value={selectedPresetId}
+                onChange={(e) => setSelectedPresetId(e.target.value)}
+                data-testid="preset-select"
+                className="select"
+              >
+                {presets.length === 0 ? (
+                  <option value="">No persisted presets</option>
+                ) : (
+                  presets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.id})
+                    </option>
+                  ))
+                )}
+              </select>
+              <button
+                type="button"
+                data-testid="load-preset-btn"
+                onClick={handleLoadBackendPreset}
+                disabled={!selectedPresetId}
+                className="btn"
+              >
+                Load
+              </button>
+              <button
+                type="button"
+                data-testid="update-preset-btn"
+                onClick={handleUpdatePreset}
+                disabled={!selectedPresetId}
+                className="btn btn-sky"
+              >
+                Update
+              </button>
+              <button
+                type="button"
+                data-testid="delete-preset-btn"
+                onClick={handleDeletePreset}
+                disabled={!selectedPresetId}
+                className="btn btn-danger"
+              >
+                Delete
+              </button>
+            </div>
 
-            <input
-              type="text"
-              value={presetNameInput}
-              onChange={(e) => setPresetNameInput(e.target.value)}
-              placeholder="Preset name"
-              className="px-3 py-1.5 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-200"
-            />
-            <button
-              onClick={handleSavePreset}
-              className="px-3 py-1.5 bg-sky-600/80 hover:bg-sky-500 text-white rounded-lg text-xs font-mono"
-            >
-              Save Grid Preset
-            </button>
-            <button
-              onClick={handleRunBenchmark}
-              className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 rounded-lg text-xs font-mono"
-            >
-              Record Benchmark
-            </button>
+            <div className="toolbar-group">
+              <input
+                type="text"
+                value={presetNameInput}
+                onChange={(e) => setPresetNameInput(e.target.value)}
+                placeholder="Preset name"
+                data-testid="preset-name-input"
+                className="input"
+              />
+              <button type="button" data-testid="create-preset-btn" onClick={handleCreatePreset} className="btn btn-sky">
+                Create Preset
+              </button>
+            </div>
           </div>
 
-          {lastBenchmark && (
-            <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl text-[11px] font-mono text-slate-300 flex flex-wrap gap-4">
-              <span>Benchmark ID: <strong className="text-amber-300">{lastBenchmark.id}</strong></span>
-              <span>Algorithm: {lastBenchmark.algorithm}</span>
-              <span>Grid: {lastBenchmark.gridRows}x{lastBenchmark.gridCols}</span>
-              <span>Path Cost: {lastBenchmark.algorithmPathCost ?? '—'}</span>
-              <span>Visited: {lastBenchmark.nodesVisited}</span>
-              <span>Duration: {lastBenchmark.executionTimeMs} ms</span>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2 pt-2 border-t border-slate-800/80">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleExportPresets}
-                className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-lg text-xs font-mono"
-              >
+          {/* Portable Bundle Export / Import */}
+          <div className="panel-divider" style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <div className="toolbar-group">
+              <button type="button" data-testid="export-bundle-btn" onClick={handleExportPresets} className="btn">
                 Export Bundle
               </button>
               <button
-                onClick={handleImportPresets}
-                className="px-3 py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-slate-200 rounded-lg text-xs font-mono"
+                type="button"
+                onClick={handleDownloadBundle}
+                disabled={!bundlePreview.trim()}
+                className="btn"
               >
+                Download .json
+              </button>
+              <button type="button" data-testid="import-bundle-btn" onClick={handleImportPresets} className="btn btn-active">
                 Import Bundle
               </button>
+              <label className="btn" style={{ cursor: 'pointer' }}>
+                Upload .json
+                <input type="file" accept=".json,application/json" onChange={handleImportFile} style={{ display: 'none' }} />
+              </label>
             </div>
             <textarea
               value={bundlePreview}
               onChange={(e) => setBundlePreview(e.target.value)}
-              rows={4}
+              data-testid="bundle-textarea"
               placeholder="Canonical portable preset bundle JSON (export or paste to import)..."
-              className="w-full p-3 bg-slate-950 border border-slate-800 rounded-xl text-[11px] font-mono text-slate-300"
+              className="textarea"
             />
+          </div>
+
+          {/* Benchmarks */}
+          <div className="panel-divider" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="toolbar-row">
+              <div className="toolbar-group">
+                <span className="toolbar-label">Benchmarks:</span>
+                <input
+                  type="text"
+                  value={benchmarkNameInput}
+                  onChange={(e) => setBenchmarkNameInput(e.target.value)}
+                  placeholder="Optional benchmark name"
+                  data-testid="benchmark-name-input"
+                  className="input"
+                />
+                <button
+                  type="button"
+                  data-testid="run-benchmark-btn"
+                  onClick={handleRunBenchmark}
+                  className="btn btn-active"
+                >
+                  Run &amp; Save Benchmark
+                </button>
+              </div>
+
+              <div className="toolbar-group">
+                <input
+                  type="text"
+                  value={benchmarkIdInput}
+                  onChange={(e) => setBenchmarkIdInput(e.target.value)}
+                  placeholder="Benchmark ID"
+                  data-testid="benchmark-id-input"
+                  className="input"
+                />
+                <button
+                  type="button"
+                  data-testid="retrieve-benchmark-btn"
+                  onClick={() => handleRetrieveBenchmark()}
+                  className="btn"
+                >
+                  Retrieve by ID
+                </button>
+                {recentBenchmarkIds.length > 0 && (
+                  <select
+                    value={benchmarkIdInput}
+                    onChange={(e) => {
+                      setBenchmarkIdInput(e.target.value);
+                      if (e.target.value) handleRetrieveBenchmark(e.target.value);
+                    }}
+                    className="select"
+                  >
+                    <option value="">Recent Benchmarks...</option>
+                    {recentBenchmarkIds.map((id) => (
+                      <option key={id} value={id}>
+                        {id}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            {lastBenchmark && (
+              <div className="metrics-grid" data-testid="benchmark-result-card">
+                <div className="metric-card">
+                  <span className="metric-label">Benchmark ID</span>
+                  <span className="metric-value text-gold" style={{ fontSize: '0.72rem', wordBreak: 'break-all' }}>
+                    {lastBenchmark.id}
+                  </span>
+                </div>
+                <div className="metric-card">
+                  <span className="metric-label">Algorithm</span>
+                  <span className="metric-value">{lastBenchmark.algorithm}</span>
+                </div>
+                <div className="metric-card">
+                  <span className="metric-label">Grid Dimensions</span>
+                  <span className="metric-value">
+                    {lastBenchmark.gridRows}×{lastBenchmark.gridCols}
+                  </span>
+                </div>
+                <div className="metric-card">
+                  <span className="metric-label">Path Found</span>
+                  <span className={`metric-value ${lastBenchmark.pathFound ? 'text-emerald' : 'text-rose'}`}>
+                    {lastBenchmark.pathFound ? 'YES' : 'NO'}
+                  </span>
+                </div>
+                <div className="metric-card">
+                  <span className="metric-label">Path Nodes / Edges</span>
+                  <span className="metric-value">
+                    {lastBenchmark.pathNodeCount} / {lastBenchmark.pathEdgeCount}
+                  </span>
+                </div>
+                <div className="metric-card">
+                  <span className="metric-label">Algo Path Cost</span>
+                  <span className="metric-value text-gold">{lastBenchmark.algorithmPathCost ?? '—'}</span>
+                </div>
+                <div className="metric-card">
+                  <span className="metric-label">Terrain Cost</span>
+                  <span className="metric-value text-gold">{lastBenchmark.terrainPathCost ?? '—'}</span>
+                </div>
+                <div className="metric-card">
+                  <span className="metric-label">Nodes Visited</span>
+                  <span className="metric-value text-indigo">{lastBenchmark.nodesVisited}</span>
+                </div>
+                <div className="metric-card">
+                  <span className="metric-label">Max Frontier</span>
+                  <span className="metric-value">{lastBenchmark.maxFrontierSize}</span>
+                </div>
+                <div className="metric-card">
+                  <span className="metric-label">Total Steps</span>
+                  <span className="metric-value">{lastBenchmark.totalSteps}</span>
+                </div>
+                <div className="metric-card">
+                  <span className="metric-label">Backend Exec Time</span>
+                  <span className="metric-value text-sky">{lastBenchmark.executionTimeMs} ms</span>
+                </div>
+              </div>
+            )}
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="mt-10 text-center text-xs text-slate-600 font-mono">
-        AETHERIS Revision 2.1.0 • Pure Determinism & Full Bidirectional Trace Reversibility
+      <footer className="footer">
+        AETHERIS Revision 2.1.0 • Pure Determinism &amp; Full Bidirectional Trace Reversibility
       </footer>
     </div>
   );

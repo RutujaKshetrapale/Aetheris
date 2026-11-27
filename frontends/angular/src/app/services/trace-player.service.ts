@@ -1,108 +1,140 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { CellState, GridModel, Keyframe, TraceDelta } from '../models/contract.models';
+import { AlgorithmType, CellState, GridModel, Keyframe, TraceDelta } from '../models/contract.models';
+import { ReversibleTraceEngine, TraceSnapshot } from './reversible-trace-engine';
+
+const EMPTY_GRID: GridModel = {
+  rows: 5,
+  cols: 5,
+  startNode: 'r0c0',
+  targetNode: 'r4c4',
+  cells: []
+};
 
 @Injectable({
   providedIn: 'root'
 })
-export class TracePlayerService {
-  private cellStates = new Map<string, CellState>();
-  private deltas: TraceDelta[] = [];
-  private keyframes: Keyframe[] = [];
-  private currentStep = -1;
-  private timer: any = null;
+export class TracePlayerService implements OnDestroy {
+  private engine = new ReversibleTraceEngine(EMPTY_GRID);
+  private timer: ReturnType<typeof setInterval> | null = null;
 
-  public cellStates$ = new BehaviorSubject<Map<string, CellState>>(new Map());
+  public snapshot$ = new BehaviorSubject<TraceSnapshot>(this.engine.getSnapshot());
+  public cellStates$ = new BehaviorSubject<Map<string, CellState>>(this.engine.getSnapshot().cellStates);
   public currentStep$ = new BehaviorSubject<number>(-1);
   public totalSteps$ = new BehaviorSubject<number>(0);
   public isPlaying$ = new BehaviorSubject<boolean>(false);
-  public playbackSpeed = 30; // ms
+  public playbackSpeed$ = new BehaviorSubject<number>(30);
+
+  get playbackSpeed(): number {
+    return this.playbackSpeed$.value;
+  }
+
+  set playbackSpeed(ms: number) {
+    this.setPlaybackSpeed(ms);
+  }
 
   initGrid(grid: GridModel): void {
     this.stop();
-    this.deltas = [];
-    this.keyframes = [];
-    this.currentStep = -1;
-    this.currentStep$.next(-1);
-    this.totalSteps$.next(0);
-
-    const map = new Map<string, CellState>();
-    for (let r = 0; r < grid.rows; r++) {
-      for (let c = 0; c < grid.cols; c++) {
-        const id = `r${r}c${c}`;
-        let type: CellState['cellType'] = 'EMPTY';
-        if (id === grid.targetNode) type = 'TARGET';
-        if (id === grid.startNode) type = 'START';
-        map.set(id, { cellType: type, traversalState: 'UNVISITED', inPath: false, gCost: null, hCost: null, fCost: null, parentId: null });
-      }
-    }
-    if (grid.cells) {
-      for (const cell of grid.cells) {
-        const cur = map.get(cell.id);
-        if (cur) map.set(cell.id, { ...cur, cellType: cell.cellType });
-      }
-    }
-    this.cellStates = map;
-    this.cellStates$.next(new Map(this.cellStates));
+    this.engine.initGrid(grid);
+    this.emitSnapshot();
   }
 
-  loadTrace(trace: TraceDelta[], kf: Keyframe[] = []): void {
-    this.deltas = trace;
-    this.keyframes = kf;
-    this.currentStep = -1;
-    this.currentStep$.next(-1);
-    this.totalSteps$.next(trace.length);
+  loadTrace(algorithmOrTrace: AlgorithmType | TraceDelta[], traceOrKeyframes: TraceDelta[] | Keyframe[] = [], maybeKeyframes: Keyframe[] = []): void {
+    this.stop();
+    if (typeof algorithmOrTrace === 'string') {
+      this.engine.loadTrace(algorithmOrTrace, traceOrKeyframes as TraceDelta[], maybeKeyframes);
+    } else {
+      this.engine.loadTrace('DIJKSTRA', algorithmOrTrace, traceOrKeyframes as Keyframe[]);
+    }
+    this.emitSnapshot();
+  }
+
+  resetToInitialState(): void {
+    this.stop();
+    this.engine.resetToInitialState();
+    this.emitSnapshot();
   }
 
   stepForward(): boolean {
-    if (this.currentStep + 1 >= this.deltas.length) {
+    const ok = this.engine.stepForward();
+    if (!ok) {
       this.stop();
       return false;
     }
-    this.currentStep++;
-    const delta = this.deltas[this.currentStep];
-    if (delta.nodeId && delta.afterState) {
-      this.cellStates.set(delta.nodeId, delta.afterState);
-      this.cellStates$.next(new Map(this.cellStates));
-    }
-    this.currentStep$.next(this.currentStep);
+    this.emitSnapshot();
     return true;
   }
 
   stepBackward(): boolean {
-    if (this.currentStep < 0) return false;
-    const delta = this.deltas[this.currentStep];
-    if (delta.nodeId && delta.beforeState) {
-      this.cellStates.set(delta.nodeId, delta.beforeState);
-      this.cellStates$.next(new Map(this.cellStates));
+    this.stop();
+    const ok = this.engine.stepBackward();
+    if (ok) {
+      this.emitSnapshot();
     }
-    this.currentStep--;
-    this.currentStep$.next(this.currentStep);
-    return true;
+    return ok;
+  }
+
+  jumpToStep(targetStep: number): void {
+    this.stop();
+    this.engine.jumpToStep(targetStep);
+    this.emitSnapshot();
+  }
+
+  setPlaybackSpeed(speedMs: number): void {
+    const clamped = Math.max(5, Math.min(2000, Number(speedMs) || 30));
+    this.playbackSpeed$.next(clamped);
+    if (this.isPlaying$.value) {
+      this.restartTimer();
+    }
   }
 
   togglePlay(): void {
     if (this.isPlaying$.value) {
       this.stop();
     } else {
+      if (this.engine.getCurrentStep() + 1 >= this.engine.getTotalSteps() && this.engine.getTotalSteps() > 0) {
+        this.engine.resetToInitialState();
+        this.emitSnapshot();
+      }
       this.start();
     }
   }
 
   start(): void {
-    if (this.isPlaying$.value) return;
+    if (this.isPlaying$.value || this.engine.getTotalSteps() === 0) return;
     this.isPlaying$.next(true);
-    this.timer = setInterval(() => {
-      const ok = this.stepForward();
-      if (!ok) this.stop();
-    }, this.playbackSpeed);
+    this.restartTimer();
   }
 
   stop(): void {
     this.isPlaying$.next(false);
-    if (this.timer) {
+    if (this.timer !== null) {
       clearInterval(this.timer);
       this.timer = null;
     }
+  }
+
+  ngOnDestroy(): void {
+    this.stop();
+  }
+
+  private restartTimer(): void {
+    if (this.timer !== null) {
+      clearInterval(this.timer);
+    }
+    this.timer = setInterval(() => {
+      const ok = this.stepForward();
+      if (!ok) {
+        this.stop();
+      }
+    }, this.playbackSpeed$.value);
+  }
+
+  private emitSnapshot(): void {
+    const snap = this.engine.getSnapshot();
+    this.snapshot$.next(snap);
+    this.cellStates$.next(snap.cellStates);
+    this.currentStep$.next(snap.currentStep);
+    this.totalSteps$.next(snap.totalSteps);
   }
 }
