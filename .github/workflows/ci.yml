@@ -94,6 +94,11 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: aetheris_password
         run: |
           set -euo pipefail
+          if ! command -v mysql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq mysql-client
+          fi
+          mysql -h 127.0.0.1 -P 3306 -uaetheris -paetheris_password aetheris < database/mysql/migrations/V1__initial_schema.sql
           mvn -f backends/spring-boot/pom.xml spring-boot:run > /tmp/spring-boot.log 2>&1 &
           SERVER_PID=$!
           cleanup() {

@@ -73,7 +73,7 @@ for (const fe of FRONTENDS) {
 
       // 15. Export & Import presets
       await page.getByTestId('export-bundle-btn').click();
-      await expect(page.getByTestId('bundle-textarea')).toContainText('aetheris-preset-bundle');
+      await expect(page.getByTestId('bundle-textarea')).toHaveValue(/aetheris-preset-bundle/);
       await page.getByTestId('import-bundle-btn').click();
       await expect(page.getByTestId('persistence-success-banner')).toContainText('Imported');
 
