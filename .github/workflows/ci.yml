@@ -93,15 +93,35 @@ jobs:
           SPRING_DATASOURCE_USERNAME: aetheris
           SPRING_DATASOURCE_PASSWORD: aetheris_password
         run: |
-          mvn -f backends/spring-boot/pom.xml spring-boot:run &
+          set -euo pipefail
+          mvn -f backends/spring-boot/pom.xml spring-boot:run > /tmp/spring-boot.log 2>&1 &
           SERVER_PID=$!
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8080/api/v1/health/ready; then break; fi
+          cleanup() {
+            kill $SERVER_PID 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          READY=0
+          for i in $(seq 1 60); do
+            if ! kill -0 $SERVER_PID 2>/dev/null; then
+              echo "Spring Boot process exited prematurely:"
+              cat /tmp/spring-boot.log
+              exit 1
+            fi
+            if curl -sf http://localhost:8080/api/v1/health/ready > /dev/null; then
+              READY=1
+              break
+            fi
             sleep 2
           done
+          if [ "$READY" -ne 1 ]; then
+            echo "Spring Boot did not become ready in time:"
+            cat /tmp/spring-boot.log
+            exit 1
+          fi
+
           npm --prefix tests ci
-          SPRING_BOOT_URL=http://localhost:8080 node tests/api-conformance/run-conformance.js || true
-          kill $SERVER_PID || true
+          SPRING_BOOT_URL=http://localhost:8080 CONFORMANCE_TARGETS=springboot node tests/api-conformance/run-conformance.js
 
   dotnet-integration:
     name: .NET 11 + MySQL 9.7 & MongoDB 9.0
@@ -174,15 +194,62 @@ jobs:
 
       - name: Start Spring Boot + React + Angular and run Playwright E2E
         run: |
-          AETHERIS_PERSISTENCE_ENGINE=IN_MEMORY mvn -f backends/spring-boot/pom.xml spring-boot:run &
+          set -euo pipefail
+          AETHERIS_PERSISTENCE_ENGINE=IN_MEMORY mvn -f backends/spring-boot/pom.xml spring-boot:run > /tmp/spring-boot-e2e.log 2>&1 &
           BE_PID=$!
-          npm --prefix frontends/react run dev -- --port 3100 &
+          npm --prefix frontends/react run dev -- --port 3100 > /tmp/react-e2e.log 2>&1 &
           RE_PID=$!
-          npm --prefix frontends/angular run start -- --port 4200 &
+          npm --prefix frontends/angular run start -- --port 4200 > /tmp/angular-e2e.log 2>&1 &
           NG_PID=$!
-          for i in $(seq 1 40); do
-            if curl -sf http://localhost:8080/api/v1/health/ready && curl -sf http://localhost:3100 && curl -sf http://localhost:4200; then break; fi
+          cleanup() {
+            kill $BE_PID $RE_PID $NG_PID 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          BE_READY=0
+          for i in $(seq 1 60); do
+            if ! kill -0 $BE_PID 2>/dev/null; then
+              echo "Spring Boot exited prematurely:"
+              cat /tmp/spring-boot-e2e.log
+              exit 1
+            fi
+            if curl -sf http://localhost:8080/api/v1/health/ready > /dev/null; then
+              BE_READY=1
+              break
+            fi
             sleep 2
           done
+          if [ "$BE_READY" -ne 1 ]; then
+            echo "Spring Boot did not become ready in time:"
+            cat /tmp/spring-boot-e2e.log
+            exit 1
+          fi
+
+          FE_READY=0
+          for i in $(seq 1 60); do
+            if ! kill -0 $RE_PID 2>/dev/null; then
+              echo "React dev server exited prematurely:"
+              cat /tmp/react-e2e.log
+              exit 1
+            fi
+            if ! kill -0 $NG_PID 2>/dev/null; then
+              echo "Angular dev server exited prematurely:"
+              cat /tmp/angular-e2e.log
+              exit 1
+            fi
+            if curl -sf http://localhost:3100 > /dev/null && curl -sf http://localhost:4200 > /dev/null; then
+              FE_READY=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$FE_READY" -ne 1 ]; then
+            echo "Frontend servers did not become ready in time:"
+            echo "--- React ---"
+            cat /tmp/react-e2e.log
+            echo "--- Angular ---"
+            cat /tmp/angular-e2e.log
+            exit 1
+          fi
+
           TARGET_FRONTEND=both API_URL=http://localhost:8080 REACT_URL=http://localhost:3100 ANGULAR_URL=http://localhost:4200 npx playwright test --config=tests/e2e/playwright.config.mjs
-          kill $BE_PID $RE_PID $NG_PID || true

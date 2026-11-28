@@ -4,7 +4,6 @@ import com.aetheris.adapter.persistence.mysql.*;
 import com.aetheris.domain.exception.PersistenceUnavailableException;
 import com.aetheris.domain.model.*;
 import com.aetheris.port.PresetRepositoryPort;
-import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -33,7 +32,7 @@ public class MySqlPresetAdapter implements PresetRepositoryPort {
             return repository.findAllByOrderByIdAsc().stream()
                     .map(MySqlPresetAdapter::toDomain)
                     .toList();
-        } catch (DataAccessException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             throw unavailable(ex);
         }
     }
@@ -44,7 +43,7 @@ public class MySqlPresetAdapter implements PresetRepositoryPort {
         ensureConfigured();
         try {
             return repository.findById(id).map(MySqlPresetAdapter::toDomain);
-        } catch (DataAccessException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             throw unavailable(ex);
         }
     }
@@ -58,7 +57,7 @@ public class MySqlPresetAdapter implements PresetRepositoryPort {
         }
         try {
             return repository.existsById(id);
-        } catch (DataAccessException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             throw unavailable(ex);
         }
     }
@@ -102,7 +101,7 @@ public class MySqlPresetAdapter implements PresetRepositoryPort {
 
             PresetEntity saved = repository.saveAndFlush(entity);
             return toDomain(saved);
-        } catch (DataAccessException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             throw unavailable(ex);
         }
     }
@@ -121,7 +120,7 @@ public class MySqlPresetAdapter implements PresetRepositoryPort {
             repository.deleteById(id);
             repository.flush();
             return true;
-        } catch (DataAccessException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             throw unavailable(ex);
         }
     }

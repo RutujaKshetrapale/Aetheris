@@ -8,7 +8,6 @@ import com.aetheris.adapter.persistence.mongo.MongoPersistenceConfig;
 import com.aetheris.adapter.persistence.mysql.MySqlPersistenceConfig;
 import com.aetheris.application.PresetBundleCodec;
 import com.aetheris.domain.model.*;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.SpringApplication;
@@ -16,7 +15,6 @@ import org.springframework.context.ConfigurableApplicationContext;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -81,15 +79,14 @@ public class DatabaseAdapterTests {
         Assumptions.assumeTrue(url != null && !url.isBlank(), "Skipping live MySQL test: AETHERIS_TEST_MYSQL_URL not set");
 
         SpringApplication app = new SpringApplication(AetherisApplication.class);
-        app.setDefaultProperties(Map.of(
-                "server.port", "0",
-                "aetheris.persistence.engine", "MYSQL",
-                "aetheris.persistence.mysql.url", url,
-                "aetheris.persistence.mysql.username", user != null ? user : "aetheris",
-                "aetheris.persistence.mysql.password", pass != null ? pass : "aetheris_password"
-        ));
 
-        try (ConfigurableApplicationContext ctx = app.run()) {
+        try (ConfigurableApplicationContext ctx = app.run(
+                "--server.port=0",
+                "--aetheris.persistence.engine=MYSQL",
+                "--aetheris.persistence.mysql.url=" + url,
+                "--aetheris.persistence.mysql.username=" + (user != null ? user : "aetheris"),
+                "--aetheris.persistence.mysql.password=" + (pass != null ? pass : "aetheris_password")
+        )) {
             MySqlPresetAdapter presetAdapter = ctx.getBean(MySqlPresetAdapter.class);
             MySqlBenchmarkAdapter benchmarkAdapter = ctx.getBean(MySqlBenchmarkAdapter.class);
 
@@ -127,17 +124,16 @@ public class DatabaseAdapterTests {
         Assumptions.assumeTrue(mongoUri != null && !mongoUri.isBlank(), "Skipping live MongoDB test: AETHERIS_TEST_MONGODB_URI not set");
 
         SpringApplication mongoApp = new SpringApplication(AetherisApplication.class);
-        mongoApp.setDefaultProperties(Map.of(
-                "server.port", "0",
-                "aetheris.persistence.engine", "MONGODB",
-                "aetheris.persistence.mongodb.uri", mongoUri,
-                "aetheris.persistence.mongodb.database", "aetheris"
-        ));
 
-        PresetBundleCodec codec = new PresetBundleCodec(new ObjectMapper());
+        PresetBundleCodec codec = new PresetBundleCodec();
         String id = "preset-mongo-test-" + System.currentTimeMillis();
 
-        try (ConfigurableApplicationContext mongoCtx = mongoApp.run()) {
+        try (ConfigurableApplicationContext mongoCtx = mongoApp.run(
+                "--server.port=0",
+                "--aetheris.persistence.engine=MONGODB",
+                "--aetheris.persistence.mongodb.uri=" + mongoUri,
+                "--aetheris.persistence.mongodb.database=aetheris"
+        )) {
             MongoPresetAdapter mongoPresets = mongoCtx.getBean(MongoPresetAdapter.class);
             MongoBenchmarkAdapter mongoBenchmarks = mongoCtx.getBean(MongoBenchmarkAdapter.class);
 
@@ -156,14 +152,13 @@ public class DatabaseAdapterTests {
 
             if (mysqlUrl != null && !mysqlUrl.isBlank()) {
                 SpringApplication mysqlApp = new SpringApplication(AetherisApplication.class);
-                mysqlApp.setDefaultProperties(Map.of(
-                        "server.port", "0",
-                        "aetheris.persistence.engine", "MYSQL",
-                        "aetheris.persistence.mysql.url", mysqlUrl,
-                        "aetheris.persistence.mysql.username", System.getenv().getOrDefault("AETHERIS_TEST_MYSQL_USER", "aetheris"),
-                        "aetheris.persistence.mysql.password", System.getenv().getOrDefault("AETHERIS_TEST_MYSQL_PASSWORD", "aetheris_password")
-                ));
-                try (ConfigurableApplicationContext mysqlCtx = mysqlApp.run()) {
+                try (ConfigurableApplicationContext mysqlCtx = mysqlApp.run(
+                        "--server.port=0",
+                        "--aetheris.persistence.engine=MYSQL",
+                        "--aetheris.persistence.mysql.url=" + mysqlUrl,
+                        "--aetheris.persistence.mysql.username=" + System.getenv().getOrDefault("AETHERIS_TEST_MYSQL_USER", "aetheris"),
+                        "--aetheris.persistence.mysql.password=" + System.getenv().getOrDefault("AETHERIS_TEST_MYSQL_PASSWORD", "aetheris_password")
+                )) {
                     MySqlPresetAdapter mysqlPresets = mysqlCtx.getBean(MySqlPresetAdapter.class);
                     GridPreset importedToMysql = mysqlPresets.save(decodedFromMongo.get(0));
                     byte[] exportedFromMysql = codec.encodePretty(List.of(importedToMysql));

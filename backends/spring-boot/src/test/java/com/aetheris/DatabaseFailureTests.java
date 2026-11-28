@@ -10,8 +10,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -22,15 +20,14 @@ public class DatabaseFailureTests {
     @Test
     public void mongodbUnavailableReturns503WhilePathfindingRemains200() throws Exception {
         SpringApplication app = new SpringApplication(AetherisApplication.class);
-        app.setDefaultProperties(Map.of(
-                "server.port", "0",
-                "aetheris.persistence.engine", "MONGODB",
-                "aetheris.persistence.mongodb.uri", "mongodb://127.0.0.1:59999/aetheris",
-                "aetheris.persistence.mongodb.database", "aetheris",
-                "aetheris.persistence.mongodb.connect-timeout-ms", "500"
-        ));
 
-        try (ConfigurableApplicationContext ctx = app.run()) {
+        try (ConfigurableApplicationContext ctx = app.run(
+                "--server.port=0",
+                "--aetheris.persistence.engine=MONGODB",
+                "--aetheris.persistence.mongodb.uri=mongodb://127.0.0.1:59999/aetheris",
+                "--aetheris.persistence.mongodb.database=aetheris",
+                "--aetheris.persistence.mongodb.connect-timeout-ms=500"
+        )) {
             MockMvc mockMvc = MockMvcBuilders.webAppContextSetup((WebApplicationContext) ctx).build();
 
             mockMvc.perform(get("/api/v1/health"))

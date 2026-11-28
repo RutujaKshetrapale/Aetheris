@@ -8,6 +8,7 @@ const SPRING_URL = process.env.SPRING_BOOT_URL || 'http://localhost:8080';
 const DOTNET_URL = process.env.DOTNET_URL || 'http://localhost:5000';
 const SPRING_OUTAGE_URL = process.env.SPRING_OUTAGE_URL || '';
 const DOTNET_OUTAGE_URL = process.env.DOTNET_OUTAGE_URL || '';
+const TARGETS = (process.env.CONFORMANCE_TARGETS || 'both').toLowerCase();
 
 // Load Draft 2020-12 JSON schemas
 const schemasDir = path.resolve(__dirname, '../../contracts/schemas');
@@ -375,38 +376,43 @@ function stripTimings(traceResp) {
 }
 
 async function main() {
-  const springRes = await runBackendSuite('Spring Boot 4.2.0', SPRING_URL);
-  const dotnetRes = await runBackendSuite('.NET 11', DOTNET_URL);
+  const runSpring = TARGETS === 'both' || TARGETS === 'springboot';
+  const runDotnet = TARGETS === 'both' || TARGETS === 'dotnet';
 
-  console.log('\n=== Cross-Backend Parity & Bundle Portability ===');
-  for (const algo of ['BFS', 'DFS', 'DIJKSTRA', 'ASTAR']) {
-    assert.deepStrictEqual(
-      stripTimings(springRes.traceResults[algo]),
-      stripTimings(dotnetRes.traceResults[algo]),
-      `Cross-backend trace parity mismatch for ${algo}`
-    );
-    console.log(`  [PASS] Exact trace parity for ${algo}`);
+  const springRes = runSpring ? await runBackendSuite('Spring Boot 4.2.0', SPRING_URL) : null;
+  const dotnetRes = runDotnet ? await runBackendSuite('.NET 11', DOTNET_URL) : null;
+
+  if (springRes && dotnetRes) {
+    console.log('\n=== Cross-Backend Parity & Bundle Portability ===');
+    for (const algo of ['BFS', 'DFS', 'DIJKSTRA', 'ASTAR']) {
+      assert.deepStrictEqual(
+        stripTimings(springRes.traceResults[algo]),
+        stripTimings(dotnetRes.traceResults[algo]),
+        `Cross-backend trace parity mismatch for ${algo}`
+      );
+      console.log(`  [PASS] Exact trace parity for ${algo}`);
+    }
+
+    // Cross-import Spring Boot bundle -> .NET and .NET bundle -> Spring Boot
+    const importIntoDotnet = await httpRequest(DOTNET_URL, '/api/v1/presets/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: springRes.exportedBundle
+    });
+    assert.strictEqual(importIntoDotnet.status, 200);
+    const importedIdFromSpring = importIntoDotnet.json.presets[0].id;
+    await httpRequest(DOTNET_URL, `/api/v1/presets/${importedIdFromSpring}`, { method: 'DELETE' });
+
+    const importIntoSpring = await httpRequest(SPRING_URL, '/api/v1/presets/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: dotnetRes.exportedBundle
+    });
+    assert.strictEqual(importIntoSpring.status, 200);
+    const importedIdFromDotnet = importIntoSpring.json.presets[0].id;
+    await httpRequest(SPRING_URL, `/api/v1/presets/${importedIdFromDotnet}`, { method: 'DELETE' });
+    console.log('  [PASS] Cross-backend preset bundle export/import portability');
   }
-
-  // Cross-import Spring Boot bundle -> .NET and .NET bundle -> Spring Boot
-  const importIntoDotnet = await httpRequest(DOTNET_URL, '/api/v1/presets/import', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: springRes.exportedBundle
-  });
-  assert.strictEqual(importIntoDotnet.status, 200);
-  const importedIdFromSpring = importIntoDotnet.json.presets[0].id;
-  await httpRequest(DOTNET_URL, `/api/v1/presets/${importedIdFromSpring}`, { method: 'DELETE' });
-
-  const importIntoSpring = await httpRequest(SPRING_URL, '/api/v1/presets/import', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: dotnetRes.exportedBundle
-  });
-  assert.strictEqual(importIntoSpring.status, 200);
-  const importedIdFromDotnet = importIntoSpring.json.presets[0].id;
-  await httpRequest(SPRING_URL, `/api/v1/presets/${importedIdFromDotnet}`, { method: 'DELETE' });
-  console.log('  [PASS] Cross-backend preset bundle export/import portability');
 
   if (SPRING_OUTAGE_URL) {
     await runOutageSuite('Spring Boot (MYSQL Stub)', SPRING_OUTAGE_URL);

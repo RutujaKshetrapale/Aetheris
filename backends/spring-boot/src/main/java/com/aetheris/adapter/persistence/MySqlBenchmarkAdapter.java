@@ -6,7 +6,6 @@ import com.aetheris.domain.model.AlgorithmType;
 import com.aetheris.domain.model.BenchmarkRecord;
 import com.aetheris.domain.model.HeuristicType;
 import com.aetheris.port.BenchmarkRepositoryPort;
-import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -63,7 +62,7 @@ public class MySqlBenchmarkAdapter implements BenchmarkRepositoryPort {
 
             BenchmarkEntity saved = repository.saveAndFlush(entity);
             return toDomain(saved);
-        } catch (DataAccessException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             throw unavailable(ex);
         }
     }
@@ -74,7 +73,7 @@ public class MySqlBenchmarkAdapter implements BenchmarkRepositoryPort {
         ensureConfigured();
         try {
             return repository.findById(id).map(MySqlBenchmarkAdapter::toDomain);
-        } catch (DataAccessException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             throw unavailable(ex);
         }
     }
@@ -87,7 +86,7 @@ public class MySqlBenchmarkAdapter implements BenchmarkRepositoryPort {
             return repository.findAllByOrderByCreatedAtAsc().stream()
                     .map(MySqlBenchmarkAdapter::toDomain)
                     .toList();
-        } catch (DataAccessException | RuntimeException ex) {
+        } catch (RuntimeException ex) {
             throw unavailable(ex);
         }
     }
